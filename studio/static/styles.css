@@ -112,20 +112,6 @@ textarea {
   letter-spacing: -1px;
   line-height: 1.05;
 }
-.brand-small {
-  display: block;
-  font-family: var(--sans);
-  font-size: 8px;
-  letter-spacing: 2px;
-  margin-top: 10px;
-  font-weight: 600;
-}
-.rail-caption {
-  font-size: 9px;
-  letter-spacing: 1.8px;
-  color: var(--muted);
-  margin: 67px 15px 15px;
-}
 nav {
   display: grid;
   gap: 7px;
@@ -155,36 +141,6 @@ nav a.active {
   margin-left: auto;
   font-size: 10px;
   font-variant-numeric: tabular-nums;
-}
-.rail-note {
-  margin: auto 14px 50px;
-  color: var(--muted);
-  font-family: var(--serif);
-  font-size: 20px;
-  line-height: 1.45;
-}
-.rail-note svg {
-  width: 160px;
-  margin-top: 60px;
-  stroke: #829680;
-  fill: none;
-  stroke-width: 1.5;
-}
-.rail-note p {
-  margin: 10px 0;
-}
-.privacy {
-  border-top: 1px solid #d8dcd0;
-  padding: 21px 7px 0;
-  display: flex;
-  gap: 9px;
-  font-size: 11px;
-}
-.privacy small {
-  display: block;
-  font-size: 9px;
-  color: var(--muted);
-  margin-top: 4px;
 }
 .dot {
   display: inline-block;
@@ -236,12 +192,6 @@ main {
   margin: 44px 0 28px;
   gap: 20px;
 }
-.eyebrow {
-  font-size: 9px;
-  letter-spacing: 2px;
-  font-weight: 600;
-  color: var(--green);
-}
 h1,
 h2,
 h3,
@@ -273,19 +223,6 @@ h3 {
   font-size: 13px;
   color: var(--muted);
   margin: 0;
-}
-.page-number {
-  font-family: var(--serif);
-  font-size: 54px;
-  color: #6b7866;
-  line-height: 1;
-  margin-bottom: 4px;
-}
-.workspace-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
-  gap: 24px;
-  align-items: start;
 }
 .upload-panel {
   background: var(--surface);
@@ -456,68 +393,6 @@ select {
   line-height: 1.5;
   margin: 0;
 }
-.side-note {
-  padding: 23px 4px;
-}
-.side-note .number {
-  font-family: var(--serif);
-  font-size: 14px;
-  color: var(--green);
-  margin-right: 9px;
-}
-.side-note h3 {
-  font-size: 24px;
-}
-.side-note p {
-  font-size: 12px;
-  line-height: 1.8;
-  color: var(--muted);
-}
-.side-note ol {
-  padding: 0;
-  list-style: none;
-  margin: 25px 0 30px;
-}
-.side-note li {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 19px;
-}
-.step-num {
-  border: 1px solid #cbd3c6;
-  border-radius: 50%;
-  width: 23px;
-  height: 23px;
-  display: grid;
-  place-items: center;
-  color: var(--green);
-  font-size: 10px;
-  flex: none;
-}
-.side-note li strong {
-  display: block;
-  font-size: 11px;
-  font-weight: 600;
-}
-.side-note li p {
-  font-size: 10px;
-  margin: 3px 0 0;
-}
-.privacy-note {
-  padding: 20px;
-  border-radius: 12px;
-  background: #e9ede3;
-  margin-top: 18px;
-}
-.privacy-note strong {
-  font-size: 11px;
-  display: block;
-  margin-bottom: 8px;
-}
-.privacy-note p {
-  font-size: 10px;
-  margin: 0;
-}
 .recent {
   margin-top: 35px;
 }
@@ -595,23 +470,6 @@ select {
   padding: 22px 0;
   color: var(--muted);
   font-size: 12px;
-}
-footer {
-  display: flex;
-  justify-content: space-between;
-  border-top: 1px solid var(--line);
-  padding: 20px 0;
-  margin-top: 43px;
-  color: var(--muted);
-  font-size: 9px;
-}
-footer span:first-child {
-  font-family: var(--serif);
-  font-size: 14px;
-}
-footer span:last-child {
-  letter-spacing: 1.2px;
-  font-size: 8px;
 }
 .notice {
   border: 1px solid #d8bba1;
@@ -748,34 +606,6 @@ dd {
   max-width: 740px;
   margin: auto;
   text-align: center;
-}
-.ribbon {
-  height: 110px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 5px;
-}
-.ribbon i {
-  width: 4px;
-  background: #77937e;
-  border-radius: 5px;
-  height: 28px;
-}
-.ribbon i:nth-child(3n) {
-  height: 61px;
-}
-.ribbon i:nth-child(3n + 1) {
-  height: 43px;
-}
-.ribbon i:nth-child(5n) {
-  height: 79px;
-}
-.ribbon.moving i {
-  animation: breathe 1.7s ease-in-out infinite alternate;
-}
-.ribbon i:nth-child(even) {
-  animation-delay: -0.7s;
 }
 .progress-panel h2 {
   font-size: 36px;
@@ -1002,11 +832,7 @@ main > section {
     transform: none;
   }
 }
-@keyframes breathe {
-  to {
-    transform: scaleY(0.55);
-  }
-}
+
 @media (min-width: 1500px) {
   .main-shell {
     padding: 0 70px;
@@ -1029,10 +855,6 @@ main > section {
   .main-shell {
     margin-left: 218px;
     padding: 0 30px;
-  }
-  .workspace-grid {
-    grid-template-columns: minmax(0, 1fr) 220px;
-    gap: 20px;
   }
   .quality label {
     padding: 10px 5px;
@@ -1060,9 +882,6 @@ main > section {
   .brand img {
     width: 32px;
   }
-  .brand-small {
-    font-size: 6px;
-  }
   nav a {
     font-size: 11px;
     gap: 8px;
@@ -1071,12 +890,6 @@ main > section {
   .main-shell {
     margin-left: 185px;
     padding: 0 25px;
-  }
-  .workspace-grid {
-    grid-template-columns: 1fr;
-  }
-  .side-note {
-    display: none;
   }
   .configuration-bottom {
     flex-direction: row;
@@ -1091,16 +904,6 @@ main > section {
   .editor-actions {
     max-width: 180px;
   }
-  .page-number {
-    display: none;
-  }
-  .rail-note {
-    margin-inline: 9px;
-    font-size: 17px;
-  }
-  .rail-note svg {
-    width: 140px;
-  }
 }
 @media (max-width: 620px) {
   .rail {
@@ -1113,15 +916,6 @@ main > section {
   }
   .brand {
     font-size: 25px;
-  }
-  .brand-small {
-    font-size: 7px;
-    margin-top: 5px;
-  }
-  .rail-caption,
-  .rail-note,
-  .privacy {
-    display: none;
   }
   nav {
     display: flex;
@@ -1228,9 +1022,6 @@ main > section {
   .section-heading h2 {
     font-size: 23px;
   }
-  footer span:last-child {
-    font-size: 6px;
-  }
   dl {
     grid-template-columns: 100px 1fr;
   }
@@ -1248,4 +1039,46 @@ main > section {
 #file-input:focus-visible + label {
   outline: 3px solid var(--green);
   outline-offset: 4px;
+}
+
+nav {
+  margin-top: 48px;
+}
+.topbar {
+  justify-content: flex-end;
+  height: 62px;
+}
+.upload-workspace {
+  max-width: 800px;
+}
+.dropzone {
+  min-height: 190px;
+  padding: 42px 24px;
+}
+.dropzone h2 {
+  font-size: 24px;
+  margin-bottom: 22px;
+}
+.quality label {
+  min-height: 70px;
+}
+.editor-foot {
+  justify-content: flex-end;
+}
+.settings-section summary {
+  cursor: pointer;
+  font-size: 16px;
+  margin-bottom: 18px;
+}
+.main-shell {
+  padding-bottom: 40px;
+}
+@media (max-width: 620px) {
+  nav {
+    margin-top: 16px;
+  }
+  .dropzone {
+    min-height: 180px;
+    padding: 32px 20px;
+  }
 }

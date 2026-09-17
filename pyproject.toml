@@ -3,7 +3,7 @@ name = "local-whisper-transcription"
 version = "0.1.0"
 description = "A private, local-first listening and transcription studio"
 requires-python = ">=3.12,<3.14"
-dependencies = ["fastapi>=0.115,<1", "uvicorn>=0.34,<1", "faster-whisper>=1.1,<2", "PyJWT[crypto]>=2.10,<3", "huggingface-hub>=0.30,<2"]
+dependencies = ["fastapi>=0.115,<1", "uvicorn>=0.34,<1", "faster-whisper>=1.1,<2", "PyJWT[crypto]>=2.10,<3", "huggingface-hub>=1.31,<2"]
 
 [dependency-groups]
 dev = ["pytest>=8,<10", "httpx>=0.28,<1", "ruff>=0.11,<1"]

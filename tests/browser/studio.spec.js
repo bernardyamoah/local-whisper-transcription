@@ -27,7 +27,7 @@ test("import, process, edit, reload, search, copy, export and delete", async ({
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "Let your words settle in." }),
+    page.getByRole("heading", { name: "New transcription" }),
   ).toBeVisible();
   await page.locator("#file-input").setInputFiles({
     name: "A conversation.wav",
@@ -69,9 +69,7 @@ test("import, process, edit, reload, search, copy, export and delete", async ({
   expect(accessibility.violations).toEqual([]);
   await page.getByRole("button", { name: "Delete…" }).click();
   await page.getByRole("button", { name: "Delete selected items" }).click();
-  await expect(
-    page.getByRole("heading", { name: "Your library." }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Library" })).toBeVisible();
   expect(errors).toEqual([]);
 });
 
@@ -82,7 +80,7 @@ for (const width of [1440, 768, 390]) {
     await page.setViewportSize({ width, height: 1000 });
     await page.goto("/");
     await expect(
-      page.getByRole("heading", { name: "Let your words settle in." }),
+      page.getByRole("heading", { name: "New transcription" }),
     ).toBeVisible();
     expect(
       await page.evaluate(
@@ -95,10 +93,8 @@ for (const width of [1440, 768, 390]) {
     });
     const accessibility = await new AxeBuilder({ page }).analyze();
     expect(accessibility.violations).toEqual([]);
-    await page.getByRole("link", { name: "Studio settings" }).click();
-    await expect(
-      page.getByRole("heading", { name: "Your studio, your way." }),
-    ).toBeVisible();
+    await page.getByRole("link", { name: "Settings" }).click();
+    await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
     await page.getByLabel("Default quality").selectOption("fast");
     await page.getByRole("button", { name: "Save preferences" }).click();
     await expect(page.locator("#settings-saved")).toContainText(
@@ -128,7 +124,7 @@ test("keyboard import, cancellation, retry, undo, and navigation saves", async (
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "Let your words settle in." }),
+    page.getByRole("heading", { name: "New transcription" }),
   ).toBeVisible();
   expect(
     await page
@@ -167,10 +163,66 @@ test("keyboard import, cancellation, retry, undo, and navigation saves", async (
   await expect(text).toHaveValue("Every voice has a story.");
   await text.fill("Saved on the way out.");
   const route = page.url();
-  await page.getByRole("link", { name: "Your library" }).click();
-  await expect(
-    page.getByRole("heading", { name: "Your library." }),
-  ).toBeVisible();
+  await page.getByRole("link", { name: "Library" }).click();
+  await expect(page.getByRole("heading", { name: "Library" })).toBeVisible();
   await page.goto(route);
   await expect(text).toHaveValue("Saved on the way out.");
+});
+
+test("model download shows measured progress, survives reload, and verifies before ready", async ({
+  page,
+}) => {
+  let state = {
+    installed: false,
+    downloading: false,
+    phase: "available",
+    progress: null,
+    total_bytes: null,
+    downloaded_bytes: 0,
+    error: null,
+  };
+  await page.route("**/api/environment", async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    body.presets.fast = { ...body.presets.fast, ...state };
+    await route.fulfill({ json: body });
+  });
+  await page.route("**/api/models/fast", async (route) => {
+    state = {
+      ...state,
+      downloading: true,
+      phase: "downloading",
+      progress: 25,
+      total_bytes: 100000000,
+      downloaded_bytes: 25000000,
+    };
+    await route.fulfill({ json: state });
+  });
+  await page.goto("/#settings");
+  await page.getByRole("button", { name: "Install", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Download model", exact: true })
+    .click();
+  const bar = page.getByRole("progressbar", { name: "Fast model download" });
+  await expect(bar).toHaveAttribute("value", "25");
+  await expect(
+    page.getByRole("status").filter({ hasText: "25%" }),
+  ).toContainText("25.0 MB / 100.0 MB");
+  state = { ...state, progress: 70, downloaded_bytes: 70000000 };
+  await expect(bar).toHaveAttribute("value", "70", { timeout: 6000 });
+  await page.reload();
+  await expect(bar).toHaveAttribute("value", "70");
+  state = {
+    ...state,
+    phase: "verifying",
+    progress: 100,
+    downloaded_bytes: 100000000,
+  };
+  await expect(page.getByText("Verifying…", { exact: true })).toBeVisible({
+    timeout: 6000,
+  });
+  await expect(bar).toHaveAttribute("value", "100");
+  state = { ...state, phase: "ready", downloading: false, installed: true };
+  await expect(bar).toHaveCount(0, { timeout: 6000 });
+  await expect(page.locator(".model-row").first()).toContainText("Installed");
 });

@@ -95,8 +95,8 @@ function safe(action) {
 function button(text, action, cls = "secondary", extras = "") {
   return `<button class="button ${cls}" data-action="${action}" ${extras}>${text}</button>`;
 }
-function heading(kicker, title, subtitle, aside = "") {
-  return `<div class="page-heading"><div><span class="eyebrow">${kicker}</span><h1>${title}</h1><p class="subtitle">${subtitle}</p></div>${aside}</div>`;
+function heading(title, subtitle = "", aside = "") {
+  return `<div class="page-heading"><div><h1>${title}</h1>${subtitle ? `<p class="subtitle">${subtitle}</p>` : ""}</div>${aside}</div>`;
 }
 function languages(value) {
   const names = new Intl.DisplayNames(["en"], { type: "language" });
@@ -146,20 +146,20 @@ async function confirmation(
   );
 }
 async function renderNew() {
-  workspace.innerHTML = `<section>${heading("FROM SOUND TO SOMETHING YOU CAN KEEP", "Let your words settle in.", "A recording, a conversation, a passing thought. Make room for all of it.", '<span class="page-number" aria-hidden="true">01 /</span>')}
-    <div class="workspace-grid"><div class="upload-panel"><div id="drop-area"></div><div class="format-strip">MP3 · WAV · M4A · AAC · FLAC · OGG · MP4 · MOV · MKV · WEBM</div>
+  workspace.innerHTML = `<section>${heading("New transcription")}
+    <div class="upload-workspace"><div class="upload-panel"><div id="drop-area"></div><div class="format-strip">MP3 · WAV · M4A · AAC · FLAC · OGG · MP4 · MOV · MKV · WEBM</div>
     <div class="configuration"><div class="field"><label for="language">Recording language</label><select id="language">${languages(settings.language)}</select></div>
-    <div class="field"><span class="label" id="quality-label">A pace that suits you</span><div class="quality-options" role="radiogroup" aria-labelledby="quality-label">${Object.entries(
+    <div class="field"><span class="label" id="quality-label">Quality</span><div class="quality-options" role="radiogroup" aria-labelledby="quality-label">${Object.entries(
       environment.presets,
     )
       .map(
         ([key, preset]) =>
-          `<div class="quality"><input type="radio" name="quality" id="quality-${key}" value="${key}" ${settings.preset === key ? "checked" : ""}><label for="quality-${key}">${titleCase(key)}<small>${key === "fast" ? "A quicker first draft" : key === "balanced" ? "Your everyday choice" : "The finer details"}</small><small>${preset.memory} memory</small></label></div>`,
+          `<div class="quality"><input type="radio" name="quality" id="quality-${key}" value="${key}" ${settings.preset === key ? "checked" : ""}><label for="quality-${key}">${titleCase(key)}<small>${preset.memory} memory</small></label></div>`,
       )
       .join("")}</div></div>
     <div class="configuration-bottom"><p id="start-help" class="helper"></p>${button('Start transcription <span aria-hidden="true">↗</span>', "start", "", 'id="start-button" disabled')}</div></div></div>
-    <aside class="side-note"><span class="eyebrow">A SMALL, SIMPLE RITUAL</span><h3>A little less busy.<br>A little more heard.</h3><ol><li><span class="step-num">1</span><div><strong>Bring your recording</strong><p>Audio or video, a few seconds or a few hours.</p></div></li><li><span class="step-num">2</span><div><strong>Let Whisper listen</strong><p>Your computer finds the words. You can carry on with your day.</p></div></li><li><span class="step-num">3</span><div><strong>Make it your own</strong><p>Listen back, refine a line, and take your words with you.</p></div></li></ol><div class="privacy-note"><strong>⌁ &nbsp; Your recordings stay with you.</strong><p>Transcription happens on this computer. No transcription API, no per-minute fees. Remote access travels securely through Cloudflare.</p></div></aside></div>
-    <div class="recent"><div class="section-heading"><h2>Recently in your studio</h2><a href="#library">Open library <span aria-hidden="true">↗</span></a></div><div id="recent-list"><p class="empty-inline">Loading your library…</p></div></div></section>`;
+    </div>
+    <div class="recent"><div class="section-heading"><h2>Recent transcriptions</h2><a href="#library">Open library <span aria-hidden="true">↗</span></a></div><div id="recent-list"><p class="empty-inline">Loading…</p></div></div></section>`;
   renderDrop();
   $$("input[name=quality]").forEach((el) =>
     el.addEventListener("change", updateStart),
@@ -170,8 +170,8 @@ function renderDrop() {
   const area = $("#drop-area");
   if (!area) return;
   area.innerHTML = imported
-    ? `<div class="file-preview"><span class="file-icon" aria-hidden="true">≋</span><label for="recording-title">Name this transcription</label><input type="text" id="recording-title" maxlength="200" value="${escape(imported.name.replace(/\.[^.]+$/, ""))}"><p>${time(imported.duration)} · ${bytes(imported.size)} · ${escape(imported.codec)} audio</p><button class="text-button" data-action="replace">Choose another recording</button></div>`
-    : `<div class="dropzone" id="dropzone"><img src="/static/sound-to-text.svg" alt=""><h2>A home for your recording.</h2><p>Drop your audio or video here, or choose a file below.</p><input id="file-input" type="file" class="visually-hidden" accept="audio/*,video/*,.mkv,.flac,.ogg,.m4a"><label for="file-input" class="button">Choose a recording <span aria-hidden="true">＋</span></label><p id="upload-status" aria-live="polite"></p><progress id="upload-progress" max="100" value="0" hidden aria-label="Upload progress"></progress></div>`;
+    ? `<div class="file-preview"><span class="file-icon" aria-hidden="true">≋</span><label for="recording-title">Title</label><input type="text" id="recording-title" maxlength="200" value="${escape(imported.name.replace(/\.[^.]+$/, ""))}"><p>${time(imported.duration)} · ${bytes(imported.size)} · ${escape(imported.codec)} audio</p><button class="text-button" data-action="replace">Choose another recording</button></div>`
+    : `<div class="dropzone" id="dropzone"><h2>Drop an audio or video file</h2><input id="file-input" type="file" class="visually-hidden" accept="audio/*,video/*,.mkv,.flac,.ogg,.m4a"><label for="file-input" class="button">Choose file</label><p id="upload-status" aria-live="polite"></p><progress id="upload-progress" max="100" value="0" hidden aria-label="Upload progress"></progress></div>`;
   if (!imported) {
     $("#file-input").addEventListener(
       "change",
@@ -204,12 +204,12 @@ function updateStart() {
   $("#start-button").disabled =
     !imported || !preset.installed || !environment.ffmpeg || uploadBusy;
   $("#start-help").innerHTML = !environment.ffmpeg
-    ? "Install FFmpeg to get started. See Studio settings."
+    ? "Install FFmpeg to transcribe."
     : !preset.installed
-      ? `<a href="#settings">Install the ${key} model in Settings ↗</a><br>One download. Then it works offline.`
+      ? `<a href="#settings">Install the ${key} model in Settings</a>`
       : imported
-        ? "Ready when you are. Processing continues if you close this tab."
-        : `Up to ${settings.max_duration_hours} hours per recording. All processing stays local.`;
+        ? ""
+        : `Up to ${settings.max_duration_hours} hours per file.`;
 }
 async function upload(file) {
   if (!file || uploadBusy) return;
@@ -217,7 +217,7 @@ async function upload(file) {
   notice("");
   $("#file-input").disabled = true;
   $("#upload-progress").hidden = false;
-  $("#upload-status").textContent = "Bringing your recording into the studio…";
+  $("#upload-status").textContent = "Uploading…";
   try {
     imported = await new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
@@ -269,10 +269,10 @@ async function refreshRecent() {
   if ($("#recent-list"))
     $("#recent-list").innerHTML = data.items.length
       ? historyRows(data.items)
-      : '<p class="empty-inline">Your first recording starts the story. It will appear here when you begin.</p>';
+      : '<p class="empty-inline">No transcriptions yet.</p>';
 }
 async function renderLibrary() {
-  workspace.innerHTML = `<section>${heading("COLLECTED, IN YOUR OWN TIME", "Your library.", "All the conversations worth coming back to.", '<a class="button" href="#new">New transcription ＋</a>')}<div class="toolbar"><label class="visually-hidden" for="history-search">Search your library</label><input id="history-search" type="search" placeholder="Find a title or recording…" value="${escape(historyQuery)}"><label class="visually-hidden" for="history-sort">Sort library</label><select id="history-sort">${["newest", "oldest", "title", "duration", "status"].map((s) => `<option ${s === historySort ? "selected" : ""} value="${s}">${titleCase(s)}</option>`).join("")}</select></div><div id="history-list"></div><div id="pagination"></div><div id="retained-list" class="retained"></div></section>`;
+  workspace.innerHTML = `<section>${heading("Library", "", '<a class="button" href="#new">New transcription ＋</a>')}<div class="toolbar"><label class="visually-hidden" for="history-search">Search your library</label><input id="history-search" type="search" placeholder="Find a title or recording…" value="${escape(historyQuery)}"><label class="visually-hidden" for="history-sort">Sort library</label><select id="history-sort">${["newest", "oldest", "title", "duration", "status"].map((s) => `<option ${s === historySort ? "selected" : ""} value="${s}">${titleCase(s)}</option>`).join("")}</select></div><div id="history-list"></div><div id="pagination"></div><div id="retained-list" class="retained"></div></section>`;
   let timer;
   $("#history-search").addEventListener("input", () => {
     historyQuery = $("#history-search").value;
@@ -307,13 +307,13 @@ async function refreshLibrary() {
     return;
   $("#history-list").innerHTML = data.items.length
     ? historyRows(data.items)
-    : `<div class="empty-state"><img src="/static/sound-to-text.svg" alt=""><h2>${query ? "Nothing here just yet." : "A quiet beginning."}</h2><p>${query ? "Try a different title or filename." : "Bring in a recording. Your words will be waiting here."}</p><a href="#new" class="button">New transcription ＋</a></div>`;
+    : `<div class="empty-state"><h2>${query ? "No results" : "No transcriptions yet"}</h2><a href="#new" class="button">New transcription ＋</a></div>`;
   $("#pagination").innerHTML =
     data.total > 50
       ? `<div class="pagination">${button("← Previous", "previous", "secondary small", historyOffset === 0 ? "disabled" : "")}<span>${historyOffset + 1}–${Math.min(historyOffset + 50, data.total)} of ${data.total}</span>${button("Next →", "next", "secondary small", historyOffset + 50 >= data.total ? "disabled" : "")}</div>`
       : "";
   $("#retained-list").innerHTML = retained.length
-    ? `<div class="section-heading"><h2>Retained recordings</h2></div><p class="helper">Imported files and sources kept after transcript deletion.</p>` +
+    ? `<div class="section-heading"><h2>Retained recordings</h2></div>` +
       retained
         .map(
           (m) =>
@@ -323,7 +323,7 @@ async function refreshLibrary() {
     : "";
 }
 function renderSettings() {
-  workspace.innerHTML = `<section>${heading("MAKE YOURSELF AT HOME", "Your studio, your way.", "Simple defaults. Everything lives on the host computer.")}<div class="settings-grid"><div><form id="settings-form" class="settings-section"><h2>The everyday details</h2><div class="field"><label for="default-language">Default language</label><select id="default-language" name="language">${languages(settings.language)}</select></div><div class="field"><label for="default-preset">Default quality</label><select id="default-preset" name="preset">${["fast", "balanced", "accurate"].map((k) => `<option ${settings.preset === k ? "selected" : ""} value="${k}">${titleCase(k)}</option>`).join("")}</select></div><div class="field"><label for="duration-limit">Maximum recording length (hours)</label><input type="number" id="duration-limit" name="max_duration_hours" min="0.1" max="24" step="0.1" value="${settings.max_duration_hours}" required></div><div class="field"><label for="hardware">Processing hardware · applies to the next job</label><select id="hardware" name="hardware">${["auto", "cpu", "cuda"].map((k) => `<option value="${k}" ${settings.hardware === k ? "selected" : ""}>${k === "auto" ? "Automatic" : k.toUpperCase()}</option>`).join("")}</select><p class="helper">This runtime uses CPU on Apple Silicon. CUDA requires a supported NVIDIA GPU.</p></div><label class="toggle-row"><input type="checkbox" name="retain_source" ${settings.retain_source ? "checked" : ""}><span>Keep recordings after transcription<br><span class="muted">Switch off to remove the original and playback audio after success. Transcript text remains.</span></span></label><button class="button" type="submit">Save preferences</button><span id="settings-saved" class="save-status" role="status"></span></form></div><div><div class="settings-section"><h2>A voice for every pace</h2><p>Download once, then transcribe offline. Downloads connect to Hugging Face; your recordings never go there.</p><div id="models-list"></div><p class="helper">Sizes are approximate for the default mappings. Custom models may differ. Memory varies with recording and hardware.</p></div><div class="settings-section"><h2>Behind the scenes</h2><div id="diagnostics"></div><a class="button secondary small" href="/api/diagnostics" download>Download safe diagnostics ↗</a></div></div></div><div class="privacy-note"><strong>A note on privacy</strong><p>Media, transcripts, and inference stay on the host computer. Remote uploads pass through Cloudflare. No analytics or transcription services are used. Diagnostic exports omit recording names, transcript text, and the data directory path. The host must stay powered on for remote access.</p></div></section>`;
+  workspace.innerHTML = `<section>${heading("Settings")}<div class="settings-grid"><div><form id="settings-form" class="settings-section"><h2>Preferences</h2><div class="field"><label for="default-language">Default language</label><select id="default-language" name="language">${languages(settings.language)}</select></div><div class="field"><label for="default-preset">Default quality</label><select id="default-preset" name="preset">${["fast", "balanced", "accurate"].map((k) => `<option ${settings.preset === k ? "selected" : ""} value="${k}">${titleCase(k)}</option>`).join("")}</select></div><div class="field"><label for="duration-limit">Maximum recording length (hours)</label><input type="number" id="duration-limit" name="max_duration_hours" min="0.1" max="24" step="0.1" value="${settings.max_duration_hours}" required></div><div class="field"><label for="hardware">Hardware (next job)</label><select id="hardware" name="hardware">${["auto", "cpu", "cuda"].map((k) => `<option value="${k}" ${settings.hardware === k ? "selected" : ""}>${k === "auto" ? "Automatic" : k.toUpperCase()}</option>`).join("")}</select><p class="helper">Apple Silicon: CPU. NVIDIA: CUDA.</p></div><label class="toggle-row"><input type="checkbox" name="retain_source" ${settings.retain_source ? "checked" : ""}><span>Keep recordings after transcription<br><span class="muted">When off, audio is deleted after transcription.</span></span></label><button class="button" type="submit">Save preferences</button><span id="settings-saved" class="save-status" role="status"></span></form></div><div><div class="settings-section"><h2>Models</h2><div id="models-list"></div></div><details class="settings-section"><summary>Diagnostics</summary><div id="diagnostics"></div><a class="button secondary small" href="/api/diagnostics" download>Download diagnostics</a></details></div></div></section>`;
   $("#settings-form").addEventListener(
     "submit",
     safe(async (e) => {
@@ -347,17 +347,23 @@ function renderSettings() {
 function updateEnvironment() {
   if (!$("#models-list")) return;
   $("#models-list").innerHTML = Object.entries(environment.presets)
-    .map(
-      ([key, p]) =>
-        `<div class="model-row"><div><strong>${titleCase(key)} <span class="muted">/ ${escape(p.model)}</span></strong><small>${p.memory} memory · approximately ${p.download_mb} MB download</small>${p.downloading ? `<small aria-live="polite">Downloading · ${bytes(p.downloaded_bytes)} received</small><progress aria-label="Model download in progress"></progress>` : ""}${p.error ? `<small class="danger-text">${escape(p.error)}</small>` : ""}</div>${p.installed ? '<span class="status">Ready offline</span>' : button(p.downloading ? "Downloading…" : "Install ↓", "install", "secondary small", `data-preset="${key}" ${p.downloading ? "disabled" : ""}`)}</div>`,
-    )
+    .map(([key, p]) => {
+      const label =
+        p.phase === "verifying"
+          ? "Verifying…"
+          : p.progress === null
+            ? "Connecting…"
+            : `${Math.floor(p.progress)}% · ${bytes(p.downloaded_bytes)} / ${bytes(p.total_bytes)}`;
+      const progress = p.downloading
+        ? `<small role="status">${label}</small><progress aria-label="${titleCase(key)} model download" max="100" ${p.progress === null ? "" : `value="${p.progress}"`}></progress>`
+        : "";
+      return `<div class="model-row"><div><strong>${titleCase(key)} <span class="muted">/ ${escape(p.model)}</span></strong><small>${p.memory} RAM · ~${p.download_mb} MB</small>${progress}${p.error ? `<small class="danger-text">${escape(p.error)}</small>` : ""}</div>${p.installed ? '<span class="status">Installed</span>' : p.downloading ? "" : button(p.error ? "Retry" : "Install", "install", "secondary small", `data-preset="${key}"`)}</div>`;
+    })
     .join("");
   $("#diagnostics").innerHTML =
     `<dl><dt>Studio version</dt><dd>${environment.version}</dd><dt>FFmpeg</dt><dd>${environment.ffmpeg ? "Installed" : "Missing — install with brew install ffmpeg"}</dd><dt>Whisper runtime</dt><dd>faster-whisper ${environment.runtime}</dd><dt>Available backend</dt><dd>${environment.compute.toUpperCase()}</dd><dt>Database</dt><dd>${environment.database ? "Healthy" : "Needs attention"}</dd><dt>Studio storage</dt><dd>${bytes(environment.used_bytes)} · ${bytes(environment.free_bytes)} free</dd><dt>Data location</dt><dd>${escape(environment.data_location)}</dd><dt>Access boundary</dt><dd>${environment.access_verified ? "Verified Cloudflare identity" : "Local recovery connection"}</dd><dt>Tunnel</dt><dd>${escape(environment.tunnel)}</dd></dl>`;
 }
-function ribbon(moving) {
-  return `<div class="ribbon ${moving ? "moving" : ""}" aria-hidden="true">${"<i></i>".repeat(29)}</div>`;
-}
+
 function renderProgress() {
   const active = [
     "queued",
@@ -366,17 +372,7 @@ function renderProgress() {
     "saving",
     "cancelling",
   ].includes(job.state);
-  const labels = {
-    queued: "A place in the queue.",
-    preparing: "Getting ready to listen.",
-    transcribing: "Finding the words.",
-    saving: "Putting it all on paper.",
-    cancelling: "Wrapping things up.",
-    cancelled: "Paused before the next chapter.",
-    failed: "A little interruption.",
-    interrupted: "Let’s pick up where we left off.",
-  };
-  workspace.innerHTML = `<section>${heading("IN YOUR STUDIO", escape(job.title), `${escape(job.filename)} · ${time(job.duration)} · ${titleCase(job.preset)}`)}<div class="progress-panel">${ribbon(active)}<span class="eyebrow">${job.state.toUpperCase()}</span><h2>${labels[job.state] || "Your recording."}</h2><p>${escape(job.error || (active ? "Your computer is doing the listening. You can close this tab and return later." : "Your recording is safe. Retry whenever you’re ready."))}</p><progress max="100" value="${job.progress}" aria-label="Transcription progress"></progress><div class="progress-details"><span>${Math.round(job.progress)}% · ${job.backend ? job.backend.toUpperCase() : "Local processing"}</span><span>${job.started ? time((job.finished || Date.now() / 1000) - job.started) + " elapsed" : "Waiting for the worker"}</span></div><div class="stages">${["preparing", "transcribing", "saving"].map((s) => `<span class="${s === job.state ? "current" : ""}">${titleCase(s)}</span>`).join('<span aria-hidden="true">·</span>')}</div>${active ? button(job.state === "cancelling" ? "Cancelling…" : "Cancel transcription", "cancel", "secondary", job.state === "cancelling" ? "disabled" : "") : button("Try again ↗", "retry", "", job.source_available ? "" : "disabled")} <a class="button secondary" href="#new">Add another recording</a>${!active ? `<div>${button("Delete recording or transcript", "delete", "secondary small danger-text")}</div>` : ""}</div></section>`;
+  workspace.innerHTML = `<section>${heading(escape(job.title), `${escape(job.filename)} · ${time(job.duration)} · ${titleCase(job.preset)}`)}<div class="progress-panel"><h2>${titleCase(job.state)}</h2>${job.error ? `<p>${escape(job.error)}</p>` : ""}<progress max="100" value="${job.progress}" aria-label="Transcription progress"></progress><div class="progress-details"><span>${Math.round(job.progress)}% · ${job.backend ? job.backend.toUpperCase() : "Local processing"}</span><span>${job.started ? time((job.finished || Date.now() / 1000) - job.started) + " elapsed" : "Waiting for the worker"}</span></div><div class="stages">${["preparing", "transcribing", "saving"].map((s) => `<span class="${s === job.state ? "current" : ""}">${titleCase(s)}</span>`).join('<span aria-hidden="true">·</span>')}</div>${active ? button(job.state === "cancelling" ? "Cancelling…" : "Cancel transcription", "cancel", "secondary", job.state === "cancelling" ? "disabled" : "") : button("Try again ↗", "retry", "", job.source_available ? "" : "disabled")} <a class="button secondary" href="#new">Add another recording</a>${!active ? `<div>${button("Delete recording or transcript", "delete", "secondary small danger-text")}</div>` : ""}</div></section>`;
 }
 function renderEditor() {
   pending.clear();
@@ -385,7 +381,7 @@ function renderEditor() {
   editUndo = [];
   matches = [];
   matchIndex = -1;
-  workspace.innerHTML = `<section><h1 class="visually-hidden">Transcript editor</h1><div class="page-heading"><div class="editor-header"><span class="eyebrow">WORDS WORTH KEEPING</span><label class="visually-hidden" for="transcript-title">Transcript title</label><input id="transcript-title" type="text" maxlength="200" value="${escape(job.title)}"><p class="subtitle">${time(job.duration)} · ${escape((job.detected_language || job.language).toUpperCase())} · ${titleCase(job.preset)} · ${date(job.created)}</p></div><span id="save-status" class="save-status" role="status">All changes saved</span></div><div class="editor-toolbar"><label class="visually-hidden" for="transcript-search">Find in transcript</label><input type="search" id="transcript-search" placeholder="Find a word or a moment…">${button("↑", "match-prev", "secondary small", 'aria-label="Previous search match"')}${button("↓", "match-next", "secondary small", 'aria-label="Next search match"')}<span id="match-count" class="helper" aria-live="polite"></span>${button("Undo", "undo", "secondary small")}${button("Copy", "copy", "secondary small")}<label class="visually-hidden" for="export-format">Export format</label><select id="export-format"><option value="txt">TXT</option><option value="srt">SRT</option><option value="vtt">VTT</option></select>${button("Export ↓", "export", "small")}</div><div class="player">${job.playback_available ? `<audio id="audio" controls preload="metadata" src="/api/jobs/${job.id}/audio"></audio><label class="visually-hidden" for="speed">Playback speed</label><select id="speed">${[0.75, 1, 1.25, 1.5, 2].map((n) => `<option value="${n}" ${n === 1 ? "selected" : ""}>${n}×</option>`).join("")}</select>` : '<p class="helper">Playback is unavailable because the recording was removed. Your transcript is still here.</p>'}</div><label class="toggle-row"><input id="follow" type="checkbox" checked> Follow playback</label><div class="transcript">${job.segments.length ? job.segments.map((s) => `<div class="segment" data-segment="${s.id}"><button class="timestamp" data-action="seek" data-time="${s.start}" aria-label="Play from ${time(s.start)}" ${job.playback_available ? "" : "disabled"}>${time(s.start)}</button><textarea aria-label="Segment at ${time(s.start)}" data-id="${s.id}" rows="2">${escape(s.text)}</textarea></div>`).join("") : '<div class="blank">No speech was detected in this recording. Try another language or quality preset if you expected speech.</div>'}</div><div class="editor-foot"><p class="helper">Machine-generated, ready for your attention.<br>Original generated text is preserved locally.</p>${button("Delete…", "delete", "secondary small danger-text")}</div></section>`;
+  workspace.innerHTML = `<section><h1 class="visually-hidden">Transcript editor</h1><div class="page-heading"><div class="editor-header"><label class="visually-hidden" for="transcript-title">Transcript title</label><input id="transcript-title" type="text" maxlength="200" value="${escape(job.title)}"><p class="subtitle">${time(job.duration)} · ${escape((job.detected_language || job.language).toUpperCase())} · ${titleCase(job.preset)} · ${date(job.created)}</p></div><span id="save-status" class="save-status" role="status">All changes saved</span></div><div class="editor-toolbar"><label class="visually-hidden" for="transcript-search">Find in transcript</label><input type="search" id="transcript-search" placeholder="Search transcript">${button("↑", "match-prev", "secondary small", 'aria-label="Previous search match"')}${button("↓", "match-next", "secondary small", 'aria-label="Next search match"')}<span id="match-count" class="helper" aria-live="polite"></span>${button("Undo", "undo", "secondary small")}${button("Copy", "copy", "secondary small")}<label class="visually-hidden" for="export-format">Export format</label><select id="export-format"><option value="txt">TXT</option><option value="srt">SRT</option><option value="vtt">VTT</option></select>${button("Export ↓", "export", "small")}</div><div class="player">${job.playback_available ? `<audio id="audio" controls preload="metadata" src="/api/jobs/${job.id}/audio"></audio><label class="visually-hidden" for="speed">Playback speed</label><select id="speed">${[0.75, 1, 1.25, 1.5, 2].map((n) => `<option value="${n}" ${n === 1 ? "selected" : ""}>${n}×</option>`).join("")}</select>` : '<p class="helper">Recording removed. Playback unavailable.</p>'}</div><label class="toggle-row"><input id="follow" type="checkbox" checked> Follow playback</label><div class="transcript">${job.segments.length ? job.segments.map((s) => `<div class="segment" data-segment="${s.id}"><button class="timestamp" data-action="seek" data-time="${s.start}" aria-label="Play from ${time(s.start)}" ${job.playback_available ? "" : "disabled"}>${time(s.start)}</button><textarea aria-label="Segment at ${time(s.start)}" data-id="${s.id}" rows="2">${escape(s.text)}</textarea></div>`).join("") : '<div class="blank">No speech detected.</div>'}</div><div class="editor-foot">${button("Delete…", "delete", "secondary small danger-text")}</div></section>`;
   $$("textarea[data-id]").forEach((el) => {
     el.addEventListener("focus", () => {
       el.dataset.before = el.value;
@@ -545,7 +541,7 @@ const actions = {
     if (
       await confirmation(
         `Download ${p.model}?`,
-        `This downloads approximately ${p.download_mb} MB from Hugging Face and uses ${p.memory} memory during transcription. It requires internet access. Your recordings are not uploaded.`,
+        `Approximately ${p.download_mb} MB from Hugging Face. Internet required.`,
         { label: "Download model" },
       )
     ) {
@@ -576,7 +572,7 @@ const actions = {
   async delete() {
     await flushEdits();
     const scope = await confirmation(
-      "Let this recording go?",
+      "Delete transcription?",
       `Choose what to remove for “${job.title}”. This cannot be undone.`,
       {
         danger: true,
@@ -655,7 +651,7 @@ const actions = {
     await navigator.clipboard.writeText(
       job.segments.map((s) => s.text).join("\n\n"),
     );
-    notice("Transcript copied. Ready for its next home.");
+    notice("Copied.");
   },
   async export() {
     await flushEdits();
@@ -705,13 +701,6 @@ async function route() {
       el.dataset.nav === (page.startsWith("job/") ? "library" : page),
     ),
   );
-  $("#breadcrumb").textContent = page.startsWith("job/")
-    ? "YOUR LIBRARY / RECORDING"
-    : page === "settings"
-      ? "THE STUDIO / SETTINGS"
-      : page === "library"
-        ? "THE STUDIO / LIBRARY"
-        : "THE LISTENING ROOM";
   if (page.startsWith("job/")) {
     const result = await api(`/jobs/${encodeURIComponent(page.slice(4))}`);
     if (generation !== routeGeneration) return;
@@ -760,8 +749,6 @@ async function boot() {
     !environment.ffmpeg ||
     !Object.values(environment.presets).some((p) => p.installed)
   )
-    notice(
-      "Your studio needs a little setup. Open Studio settings to check FFmpeg and install a transcription model.",
-    );
+    notice("Open Settings to install a model or check FFmpeg.");
 }
 await safe(boot)();

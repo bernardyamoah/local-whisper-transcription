@@ -1,6 +1,6 @@
 # Whisper Studio
 
-A quiet, private place to turn recordings into words. Whisper Studio runs **FFmpeg, faster-whisper, SQLite, and its web server on your own computer**. A warm listening-room interface handles import, transcription, review, and export.
+Local audio and video transcription. Whisper Studio runs **FFmpeg, faster-whisper, SQLite, and its web server on your own computer**. Import recordings, edit transcripts, and export text or subtitles.
 
 Built for `transcribe.bernardyamoah.com`, with a loopback recovery address at `http://127.0.0.1:8765`.
 
@@ -18,14 +18,14 @@ uv sync --locked
 uv run whisper-studio
 ```
 
-Open **http://127.0.0.1:8765**. Go to **Studio settings**, choose **Install**, and confirm a model download. Then return to **New transcription** and choose an audio or video recording. The application never downloads an inference model automatically.
+Open **http://127.0.0.1:8765**. Go to **Settings**, choose **Install**, and confirm a model download. Then return to **New transcription** and choose an audio or video recording. The application never downloads an inference model automatically.
 
 First installation requires internet access. After software and a model are installed, local transcription works offline. The normal application does not use Node.js; it serves bundled JavaScript, CSS, SVGs, and fonts directly.
 
 ## Included
 
 - Drag-and-drop uploads with streaming writes, checksums, actual container probing, duration limits, and upload progress.
-- Fast, Balanced, and Accurate presets, explicit model installation, byte-count download progress, language detection or manual selection.
+- Fast, Balanced, and Accurate presets, explicit model installation, percentage and byte-count download progress, language detection or manual selection.
 - One durable background worker; persistent queue, stage progress, elapsed time, cancellation, retry, and interrupted-job recovery.
 - Browser-compatible playback, timestamp seeking, segment following, volume and speed controls.
 - Debounced autosave, original generated text preservation, revision conflict protection, search, session undo, and copy.
@@ -33,7 +33,7 @@ First installation requires internet access. After software and a model are inst
 - Searchable/sortable, paginated library, retained source reuse, scoped deletion confirmations, and retention settings.
 - Local diagnostics, rotating content-free logs, storage reporting, and offline connection messages.
 - Loopback-only origin, host/origin checks, CSRF request headers, restrictive CSP, and signed Cloudflare Access JWT verification for the production hostname.
-- Self-hosted DM Sans and Newsreader, original SVG artwork, keyboard controls, reduced-motion support, and desktop/tablet/mobile layouts.
+- Self-hosted DM Sans and Newsreader, keyboard controls, reduced-motion support, and desktop/tablet/mobile layouts.
 
 ## Configuration
 
