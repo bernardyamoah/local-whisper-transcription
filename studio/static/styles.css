@@ -880,6 +880,13 @@ dialog p {
   background: #e9ede3;
   border-radius: 10px;
   font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.blank p {
+  margin: 0;
 }
 .visually-hidden {
   position: absolute;

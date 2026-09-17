@@ -196,6 +196,7 @@ function Editor({ initial }: { initial: Job }) {
   const [playbackTime, setPlaybackTime] = useState(0);
   const [active, setActive] = useState<number>();
   const [scope, setScope] = useState("all");
+  const [retrying, setRetrying] = useState(false);
   const audio = useRef<HTMLAudioElement>(null);
   const timer = useRef<number | undefined>(undefined);
   const revision = useRef(initial.revision);
@@ -299,6 +300,18 @@ function Editor({ initial }: { initial: Job }) {
     }
   }
 
+  async function retry() {
+    setRetrying(true);
+    try {
+      await save();
+      await api(`/jobs/${initial.id}/retry`, { method: "POST" });
+      window.location.reload();
+    } catch (reason) {
+      setRetrying(false);
+      notice((reason as Error).message, true);
+    }
+  }
+
   const selectedMatch = matches.length
     ? matches[Math.min(matchIndex, matches.length - 1)]
     : undefined;
@@ -343,126 +356,130 @@ function Editor({ initial }: { initial: Job }) {
           {saveStatus}
         </span>
       </div>
-      <div className="editor-toolbar">
-        <label className="visually-hidden" htmlFor="transcript-search">
-          Find in transcript
-        </label>
-        <Input
-          id="transcript-search"
-          type="search"
-          placeholder="Search transcript"
-          value={query}
-          onChange={(event) => {
-            setQuery(event.target.value);
-            setMatchIndex(0);
-          }}
-        />
-        <Button
-          variant="outline"
-          size="sm"
-          aria-label="Previous search match"
-          onClick={() =>
-            setMatchIndex(
-              matches.length
-                ? (matchIndex - 1 + matches.length) % matches.length
-                : 0,
-            )
-          }
-        >
-          <HugeiconsIcon icon={ArrowUp02Icon} size={15} strokeWidth={1.8} />
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          aria-label="Next search match"
-          onClick={() =>
-            setMatchIndex(
-              matches.length ? (matchIndex + 1) % matches.length : 0,
-            )
-          }
-        >
-          <HugeiconsIcon icon={ArrowDown02Icon} size={15} strokeWidth={1.8} />
-        </Button>
-        <span id="match-count" className="helper" aria-live="polite">
-          {query
-            ? `${matches.length ? matchIndex + 1 : 0} / ${matches.length}`
-            : ""}
-        </span>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            const last = undo.current.pop();
-            if (last) updateSegment(last.id, last.text);
-          }}
-        >
-          Undo
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={async () => {
-            await save();
-            await navigator.clipboard.writeText(
-              segments.map((segment) => segment.text).join("\n\n"),
-            );
-            notice("Copied.");
-          }}
-        >
-          Copy
-        </Button>
-        <label className="visually-hidden" htmlFor="export-format">
-          Export format
-        </label>
-        <NativeSelect
-          id="export-format"
-          value={format}
-          onChange={(event) => setFormat(event.target.value)}
-        >
-          <NativeSelectOption value="txt">TXT</NativeSelectOption>
-          <NativeSelectOption value="srt">SRT</NativeSelectOption>
-          <NativeSelectOption value="vtt">VTT</NativeSelectOption>
-        </NativeSelect>
-        <Button
-          size="sm"
-          onClick={async () => {
-            await save();
-            const link = document.createElement("a");
-            link.href = `/api/jobs/${initial.id}/export/${format}`;
-            link.click();
-          }}
-        >
-          Export
-          <HugeiconsIcon icon={Download02Icon} size={15} strokeWidth={1.8} />
-        </Button>
-      </div>
+      {!!segments.length && (
+        <div className="editor-toolbar">
+          <label className="visually-hidden" htmlFor="transcript-search">
+            Find in transcript
+          </label>
+          <Input
+            id="transcript-search"
+            type="search"
+            placeholder="Search transcript"
+            value={query}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setMatchIndex(0);
+            }}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            aria-label="Previous search match"
+            onClick={() =>
+              setMatchIndex(
+                matches.length
+                  ? (matchIndex - 1 + matches.length) % matches.length
+                  : 0,
+              )
+            }
+          >
+            <HugeiconsIcon icon={ArrowUp02Icon} size={15} strokeWidth={1.8} />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            aria-label="Next search match"
+            onClick={() =>
+              setMatchIndex(
+                matches.length ? (matchIndex + 1) % matches.length : 0,
+              )
+            }
+          >
+            <HugeiconsIcon icon={ArrowDown02Icon} size={15} strokeWidth={1.8} />
+          </Button>
+          <span id="match-count" className="helper" aria-live="polite">
+            {query
+              ? `${matches.length ? matchIndex + 1 : 0} / ${matches.length}`
+              : ""}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const last = undo.current.pop();
+              if (last) updateSegment(last.id, last.text);
+            }}
+          >
+            Undo
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              await save();
+              await navigator.clipboard.writeText(
+                segments.map((segment) => segment.text).join("\n\n"),
+              );
+              notice("Copied.");
+            }}
+          >
+            Copy
+          </Button>
+          <label className="visually-hidden" htmlFor="export-format">
+            Export format
+          </label>
+          <NativeSelect
+            id="export-format"
+            value={format}
+            onChange={(event) => setFormat(event.target.value)}
+          >
+            <NativeSelectOption value="txt">TXT</NativeSelectOption>
+            <NativeSelectOption value="srt">SRT</NativeSelectOption>
+            <NativeSelectOption value="vtt">VTT</NativeSelectOption>
+          </NativeSelect>
+          <Button
+            size="sm"
+            onClick={async () => {
+              await save();
+              const link = document.createElement("a");
+              link.href = `/api/jobs/${initial.id}/export/${format}`;
+              link.click();
+            }}
+          >
+            Export
+            <HugeiconsIcon icon={Download02Icon} size={15} strokeWidth={1.8} />
+          </Button>
+        </div>
+      )}
       <div className="player">
         {initial.playback_available ? (
           <>
-            <StepPlayer
-              className="rare-audio-player"
-              steps={playerSegments.map((segment) => ({
-                label: `Play from ${time(segment.start)}`,
-              }))}
-              value={playerStep}
-              playing={playing}
-              duration={0}
-              size={34}
-              seekable
-              controlPosition="left"
-              onValueChange={(index) => {
-                const segment = playerSegments[index];
-                if (!audio.current || !segment) return;
-                audio.current.currentTime = segment.start;
-                setPlaybackTime(segment.start);
-                setActive(segment.id);
-              }}
-              onPlayingChange={(next) => {
-                if (!audio.current) return;
-                if (next) playAudio();
-                else audio.current.pause();
-              }}
-            />
+            {!!segments.length && (
+              <StepPlayer
+                className="rare-audio-player"
+                steps={playerSegments.map((segment) => ({
+                  label: `Play from ${time(segment.start)}`,
+                }))}
+                value={playerStep}
+                playing={playing}
+                duration={0}
+                size={34}
+                seekable
+                controlPosition="left"
+                onValueChange={(index) => {
+                  const segment = playerSegments[index];
+                  if (!audio.current || !segment) return;
+                  audio.current.currentTime = segment.start;
+                  setPlaybackTime(segment.start);
+                  setActive(segment.id);
+                }}
+                onPlayingChange={(next) => {
+                  if (!audio.current) return;
+                  if (next) playAudio();
+                  else audio.current.pause();
+                }}
+              />
+            )}
             <audio
               ref={audio}
               controls
@@ -504,13 +521,15 @@ function Editor({ initial }: { initial: Job }) {
           <p className="helper">Recording removed. Playback unavailable.</p>
         )}
       </div>
-      <label className="toggle-row">
-        <Checkbox
-          checked={follow}
-          onCheckedChange={(checked) => setFollow(checked === true)}
-        />{" "}
-        Follow playback
-      </label>
+      {!!segments.length && (
+        <label className="toggle-row">
+          <Checkbox
+            checked={follow}
+            onCheckedChange={(checked) => setFollow(checked === true)}
+          />{" "}
+          Follow playback
+        </label>
+      )}
       <div className="transcript">
         {segments.length ? (
           segments.map((segment) => (
@@ -544,7 +563,14 @@ function Editor({ initial }: { initial: Job }) {
             </div>
           ))
         ) : (
-          <div className="blank">No speech detected.</div>
+          <div className="blank">
+            <p>No speech found.</p>
+            {initial.source_available && (
+              <Button disabled={retrying} onClick={() => void retry()}>
+                {retrying ? "Retrying…" : "Retry transcription"}
+              </Button>
+            )}
+          </div>
         )}
       </div>
       <div className="editor-foot">

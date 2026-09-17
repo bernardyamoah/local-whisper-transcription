@@ -10,6 +10,34 @@ import threading
 from pathlib import Path
 
 
+def transcribe(model, source, language, on_segment=lambda segment, info: None):
+    options = {
+        "language": None if language == "auto" else language,
+        "vad_filter": True,
+        "beam_size": 5,
+    }
+    passes = (
+        options,
+        options | {"no_speech_threshold": 0.9, "log_prob_threshold": -2.0},
+    )
+    for settings in passes:
+        segments, info = model.transcribe(source, **settings)
+        result = []
+        for segment in segments:
+            result.append(
+                {
+                    "start": segment.start,
+                    "end": segment.end,
+                    "text": segment.text.strip(),
+                    "confidence": segment.avg_logprob,
+                }
+            )
+            on_segment(segment, info)
+        if result:
+            return result, info
+    return [], info
+
+
 def main():
     source, normalized, playback, model_path, language, hardware, output, events = sys.argv[1:]
     expected_parent = int(os.getenv("STUDIO_PARENT_PID", str(os.getppid())))
@@ -67,20 +95,11 @@ def main():
             cpu_threads=max(1, (os.cpu_count() or 2) // 2),
             local_files_only=True,
         )
-        segments, info = model.transcribe(
-            normalized, language=None if language == "auto" else language, vad_filter=True, beam_size=5
-        )
-        result = []
-        for segment in segments:
-            result.append(
-                {
-                    "start": segment.start,
-                    "end": segment.end,
-                    "text": segment.text.strip(),
-                    "confidence": segment.avg_logprob,
-                }
-            )
+
+        def progress(segment, info):
             emit(stage="transcribing", progress=min(94, 5 + 89 * segment.end / max(info.duration, 1)))
+
+        result, info = transcribe(model, normalized, language, progress)
         emit(stage="saving", progress=96)
         subprocess.run(
             [

@@ -69,6 +69,19 @@ def test_cancel_and_retry(client, audio, app):
     assert finished["attempt"] == 2
 
 
+def test_completed_empty_transcript_can_retry(client, audio, app):
+    created = new_job(client, audio)
+    job = wait_state(client, created["id"])
+    assert client.post(f"/api/jobs/{job['id']}/retry").status_code == 400
+    with app.state.store.connect() as db:
+        db.execute("DELETE FROM segments WHERE job_id=?", (job["id"],))
+    response = client.post(f"/api/jobs/{job['id']}/retry")
+    assert response.status_code == 200
+    finished = wait_state(client, job["id"])
+    assert finished["attempt"] == 2
+    assert finished["segments"]
+
+
 def test_import_validation(client, audio):
     for content in [b"", b"not audio"]:
         assert client.post("/api/media", content=content).status_code == 400

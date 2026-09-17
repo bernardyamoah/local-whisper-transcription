@@ -20,7 +20,7 @@ TRANSITIONS = {
     "failed": {"queued"},
     "cancelled": {"queued"},
     "interrupted": {"queued"},
-    "completed": set(),
+    "completed": {"queued"},
 }
 ACTIVE = {"preparing", "transcribing", "saving", "cancelling"}
 
@@ -96,11 +96,18 @@ class Orchestrator:
             job = self.store.job(identifier)
             if not job["source_available"]:
                 raise ValueError("The source recording is missing. Import it again.")
+            if (
+                job["state"] == "completed"
+                and db.execute("SELECT 1 FROM segments WHERE job_id=?", (identifier,)).fetchone()
+            ):
+                raise ValueError("Only an empty transcript can be retried.")
             self.transition(
                 db,
                 identifier,
                 "queued",
                 error=None,
+                detected_language=None,
+                engine_version=None,
                 progress=0,
                 started=None,
                 finished=None,
