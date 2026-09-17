@@ -229,14 +229,14 @@ test("model download shows measured progress, survives reload, and verifies befo
     .getByRole("button", { name: "Download model", exact: true })
     .click();
   const bar = page.getByRole("progressbar", { name: "Base model download" });
-  await expect(bar).toHaveAttribute("value", "25");
+  await expect(bar).toHaveAttribute("aria-valuenow", "25");
   await expect(
     page.getByRole("status").filter({ hasText: "25%" }),
   ).toContainText("25.0 MB / 100.0 MB");
   state = { ...state, progress: 70, downloaded_bytes: 70000000 };
-  await expect(bar).toHaveAttribute("value", "70", { timeout: 6000 });
+  await expect(bar).toHaveAttribute("aria-valuenow", "70", { timeout: 6000 });
   await page.reload();
-  await expect(bar).toHaveAttribute("value", "70");
+  await expect(bar).toHaveAttribute("aria-valuenow", "70");
   state = {
     ...state,
     phase: "verifying",
@@ -246,7 +246,7 @@ test("model download shows measured progress, survives reload, and verifies befo
   await expect(page.getByText("Verifying…", { exact: true })).toBeVisible({
     timeout: 6000,
   });
-  await expect(bar).toHaveAttribute("value", "100");
+  await expect(bar).toHaveAttribute("aria-valuenow", "100");
   state = { ...state, phase: "ready", downloading: false, installed: true };
   await expect(bar).toHaveCount(0, { timeout: 6000 });
   await expect(page.locator(".model-row").first()).toContainText("Installed");

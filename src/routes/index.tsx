@@ -1,6 +1,12 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { motion, useReducedMotion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Input } from "@/components/ui/input";
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@/components/ui/native-select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useStudio } from "../components/studio-context";
 import {
   Button,
@@ -129,7 +135,7 @@ function NewTranscription() {
                 ≋
               </span>
               <label htmlFor="recording-title">Title</label>
-              <input
+              <Input
                 id="recording-title"
                 type="text"
                 maxLength={200}
@@ -154,18 +160,23 @@ function NewTranscription() {
               }}
             >
               <h2>Drop an audio or video file</h2>
-              <input
+              <Input
                 ref={input}
                 id="file-input"
                 type="file"
+                aria-label="Choose recording"
                 className="visually-hidden"
                 accept="audio/*,video/*,.mkv,.flac,.ogg,.m4a"
                 disabled={busy}
                 onChange={(event) => uploadFile(event.target.files?.[0])}
               />
-              <label htmlFor="file-input" className="button">
+              <Button
+                type="button"
+                disabled={busy}
+                onClick={() => input.current?.click()}
+              >
                 Choose file
-              </label>
+              </Button>
               <p id="upload-status" aria-live="polite">
                 {uploadStatus}
               </p>
@@ -180,63 +191,61 @@ function NewTranscription() {
           <div className="configuration">
             <div className="field">
               <label htmlFor="language">Recording language</label>
-              <select
+              <NativeSelect
                 id="language"
+                className="w-full"
                 value={language}
                 onChange={(event) => setLanguage(event.target.value)}
               >
-                <option value="auto">Detect automatically</option>
+                <NativeSelectOption value="auto">
+                  Detect automatically
+                </NativeSelectOption>
                 {[...environment.languages]
                   .sort((a, b) =>
                     (names.of(a) || a).localeCompare(names.of(b) || b),
                   )
                   .map((code) => (
-                    <option key={code} value={code}>
+                    <NativeSelectOption key={code} value={code}>
                       {names.of(code)}
-                    </option>
+                    </NativeSelectOption>
                   ))}
-              </select>
+              </NativeSelect>
             </div>
             <div className="field">
               <span className="label" id="quality-label">
                 Quality
               </span>
-              <div
+              <RadioGroup
                 className="quality-options"
-                role="radiogroup"
                 aria-labelledby="quality-label"
+                value={quality}
+                onValueChange={(value) => chooseQuality(String(value))}
               >
                 {Object.entries(environment.presets).map(([key, preset]) => (
                   <div className="quality" key={key}>
-                    <input
-                      type="radio"
-                      name="quality"
-                      id={`quality-${key}`}
-                      value={key}
-                      checked={quality === key}
-                      onChange={() => chooseQuality(key)}
-                    />
+                    <RadioGroupItem id={`quality-${key}`} value={key} />
                     <label htmlFor={`quality-${key}`}>
                       {titleCase(key)}
                       <small>{preset.memory} memory</small>
                     </label>
                   </div>
                 ))}
-              </div>
+              </RadioGroup>
             </div>
             <div className="field">
               <label htmlFor="model">Model</label>
-              <select
+              <NativeSelect
                 id="model"
+                className="w-full"
                 value={model}
                 onChange={(event) => setModel(event.target.value)}
               >
                 {installed.map((item) => (
-                  <option key={item.id} value={item.id}>
+                  <NativeSelectOption key={item.id} value={item.id}>
                     {item.name}
-                  </option>
+                  </NativeSelectOption>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
             <div className="configuration-bottom">
               <p className="helper">

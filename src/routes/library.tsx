@@ -1,5 +1,11 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
+import { buttonVariants } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@/components/ui/native-select";
 import { useStudio } from "../components/studio-context";
 import {
   Button,
@@ -67,7 +73,7 @@ function Library() {
       <PageHeader
         title="Library"
         action={
-          <Link className="button" to="/">
+          <Link className={buttonVariants()} to="/">
             New transcription ＋
           </Link>
         }
@@ -76,7 +82,7 @@ function Library() {
         <label className="visually-hidden" htmlFor="history-search">
           Search your library
         </label>
-        <input
+        <Input
           id="history-search"
           type="search"
           placeholder="Find a title or recording…"
@@ -89,7 +95,7 @@ function Library() {
         <label className="visually-hidden" htmlFor="history-sort">
           Sort library
         </label>
-        <select
+        <NativeSelect
           id="history-sort"
           value={sort}
           onChange={(event) => {
@@ -97,12 +103,12 @@ function Library() {
             setOffset(0);
           }}
         >
-          <option value="newest">Newest</option>
-          <option value="oldest">Oldest</option>
-          <option value="title">Title</option>
-          <option value="duration">Duration</option>
-          <option value="status">Status</option>
-        </select>
+          <NativeSelectOption value="newest">Newest</NativeSelectOption>
+          <NativeSelectOption value="oldest">Oldest</NativeSelectOption>
+          <NativeSelectOption value="title">Title</NativeSelectOption>
+          <NativeSelectOption value="duration">Duration</NativeSelectOption>
+          <NativeSelectOption value="status">Status</NativeSelectOption>
+        </NativeSelect>
       </div>
       {jobs.length ? (
         jobs.map((job) => <HistoryRow key={job.id} job={job} />)
@@ -110,7 +116,7 @@ function Library() {
         <EmptyState
           title={query ? "No results" : "No transcriptions yet"}
           action={
-            <Link className="button" to="/">
+            <Link className={buttonVariants()} to="/">
               New transcription ＋
             </Link>
           }
@@ -119,7 +125,8 @@ function Library() {
       {total > 50 && (
         <div className="pagination">
           <Button
-            className="secondary small"
+            variant="outline"
+            size="sm"
             disabled={!offset}
             onClick={() => setOffset(Math.max(0, offset - 50))}
           >
@@ -129,7 +136,8 @@ function Library() {
             {offset + 1}–{Math.min(offset + 50, total)} of {total}
           </span>
           <Button
-            className="secondary small"
+            variant="outline"
+            size="sm"
             disabled={offset + 50 >= total}
             onClick={() => setOffset(offset + 50)}
           >
@@ -151,7 +159,8 @@ function Library() {
                 </small>
               </span>
               <Button
-                className="secondary small"
+                variant="outline"
+                size="sm"
                 onClick={() => {
                   sessionStorage.setItem("reuse-media", JSON.stringify(item));
                   void navigate({ to: "/" });
@@ -160,7 +169,8 @@ function Library() {
                 Transcribe
               </Button>
               <Button
-                className="secondary small danger-text"
+                variant="destructive"
+                size="sm"
                 onClick={() => {
                   setRemoveId(item.id);
                   setConfirm({

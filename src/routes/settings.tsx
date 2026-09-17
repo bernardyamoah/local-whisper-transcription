@@ -1,5 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Field, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@/components/ui/native-select";
 import { useStudio } from "../components/studio-context";
 import {
   Button,
@@ -86,31 +95,37 @@ function SettingsPage() {
         <div>
           <form className="settings-section" onSubmit={save}>
             <h2>Preferences</h2>
-            <div className="field">
-              <label htmlFor="default-language">Default language</label>
-              <select
+            <Field className="field">
+              <FieldLabel htmlFor="default-language">
+                Default language
+              </FieldLabel>
+              <NativeSelect
                 id="default-language"
+                className="w-full"
                 value={draft.language}
                 onChange={(event) =>
                   setDraft({ ...draft, language: event.target.value })
                 }
               >
-                <option value="auto">Detect automatically</option>
+                <NativeSelectOption value="auto">
+                  Detect automatically
+                </NativeSelectOption>
                 {[...environment.languages]
                   .sort((a, b) =>
                     (names.of(a) || a).localeCompare(names.of(b) || b),
                   )
                   .map((code) => (
-                    <option key={code} value={code}>
+                    <NativeSelectOption key={code} value={code}>
                       {names.of(code)}
-                    </option>
+                    </NativeSelectOption>
                   ))}
-              </select>
-            </div>
-            <div className="field">
-              <label htmlFor="default-preset">Default quality</label>
-              <select
+              </NativeSelect>
+            </Field>
+            <Field className="field">
+              <FieldLabel htmlFor="default-preset">Default quality</FieldLabel>
+              <NativeSelect
                 id="default-preset"
+                className="w-full"
                 value={draft.preset}
                 onChange={(event) =>
                   setDraft({
@@ -120,17 +135,17 @@ function SettingsPage() {
                 }
               >
                 {(["fast", "balanced", "accurate"] as const).map((value) => (
-                  <option key={value} value={value}>
+                  <NativeSelectOption key={value} value={value}>
                     {titleCase(value)}
-                  </option>
+                  </NativeSelectOption>
                 ))}
-              </select>
-            </div>
-            <div className="field">
-              <label htmlFor="duration-limit">
+              </NativeSelect>
+            </Field>
+            <Field className="field">
+              <FieldLabel htmlFor="duration-limit">
                 Maximum recording length (hours)
-              </label>
-              <input
+              </FieldLabel>
+              <Input
                 id="duration-limit"
                 type="number"
                 min="0.1"
@@ -145,11 +160,12 @@ function SettingsPage() {
                   })
                 }
               />
-            </div>
-            <div className="field">
-              <label htmlFor="hardware">Hardware (next job)</label>
-              <select
+            </Field>
+            <Field className="field">
+              <FieldLabel htmlFor="hardware">Hardware (next job)</FieldLabel>
+              <NativeSelect
                 id="hardware"
+                className="w-full"
                 value={draft.hardware}
                 onChange={(event) =>
                   setDraft({
@@ -158,17 +174,16 @@ function SettingsPage() {
                   })
                 }
               >
-                <option value="auto">Automatic</option>
-                <option value="cpu">CPU</option>
-                <option value="cuda">CUDA</option>
-              </select>
-            </div>
+                <NativeSelectOption value="auto">Automatic</NativeSelectOption>
+                <NativeSelectOption value="cpu">CPU</NativeSelectOption>
+                <NativeSelectOption value="cuda">CUDA</NativeSelectOption>
+              </NativeSelect>
+            </Field>
             <label className="toggle-row">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={draft.retain_source}
-                onChange={(event) =>
-                  setDraft({ ...draft, retain_source: event.target.checked })
+                onCheckedChange={(checked) =>
+                  setDraft({ ...draft, retain_source: checked === true })
                 }
               />
               <span>Keep recordings after transcription</span>
@@ -191,7 +206,7 @@ function SettingsPage() {
             <label className="visually-hidden" htmlFor="model-search">
               Search models
             </label>
-            <input
+            <Input
               id="model-search"
               type="search"
               placeholder="Search models"
@@ -263,7 +278,7 @@ function SettingsPage() {
               <dd>{environment.data_location}</dd>
             </dl>
             <a
-              className="button secondary small"
+              className={buttonVariants({ variant: "outline", size: "sm" })}
               href="/api/diagnostics"
               download
             >
@@ -317,16 +332,16 @@ function ModelRow({
         {model.error && <small className="danger-text">{model.error}</small>}
       </div>
       <div className="model-actions">
-        {preset && <span className="model-preset">{preset}</span>}
+        {preset && <Badge variant="secondary">{preset}</Badge>}
         {model.installed ? (
           <>
-            <span className="status">Installed</span>
-            <Button className="secondary small danger-text" onClick={remove}>
+            <Badge variant="outline">Installed</Badge>
+            <Button variant="destructive" size="sm" onClick={remove}>
               Delete
             </Button>
           </>
         ) : !model.downloading ? (
-          <Button className="secondary small" onClick={install}>
+          <Button variant="outline" size="sm" onClick={install}>
             {model.error ? "Retry" : "Install"}
           </Button>
         ) : null}

@@ -6,11 +6,11 @@ import {
   createRootRoute,
 } from "@tanstack/react-router";
 import type { ReactNode } from "react";
+import "../styles.css";
 import {
   LegacyHashRedirect,
   StudioProvider,
 } from "../components/studio-context";
-import "../../studio/static/styles.css";
 
 export const Route = createRootRoute({
   head: () => ({
@@ -50,11 +50,6 @@ function Root() {
         </nav>
       </aside>
       <div className="main-shell">
-        <header className="topbar">
-          <span className="local-badge">
-            <span className="dot" /> Local engine
-          </span>
-        </header>
         <StudioProvider>
           <LegacyHashRedirect />
           <main id="workspace" tabIndex={-1}>

@@ -1,5 +1,14 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { buttonVariants } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@/components/ui/native-select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Textarea } from "@/components/ui/textarea";
 import { useStudio } from "../components/studio-context";
 import {
   Button,
@@ -110,7 +119,7 @@ function JobProgress({
         </div>
         {active ? (
           <Button
-            className="secondary"
+            variant="outline"
             disabled={job.state === "cancelling"}
             onClick={() => {
               setAction("cancel");
@@ -140,13 +149,14 @@ function JobProgress({
             Try again ↗
           </Button>
         )}{" "}
-        <Link className="button secondary" to="/">
+        <Link className={buttonVariants({ variant: "outline" })} to="/">
           Add another recording
         </Link>
         {!active && (
           <div>
             <Button
-              className="secondary small danger-text"
+              variant="destructive"
+              size="sm"
               onClick={() => {
                 setAction("delete");
                 setConfirm({
@@ -294,7 +304,7 @@ function Editor({ initial }: { initial: Job }) {
           <label className="visually-hidden" htmlFor="transcript-title">
             Transcript title
           </label>
-          <input
+          <Input
             id="transcript-title"
             type="text"
             maxLength={200}
@@ -320,7 +330,7 @@ function Editor({ initial }: { initial: Job }) {
         <label className="visually-hidden" htmlFor="transcript-search">
           Find in transcript
         </label>
-        <input
+        <Input
           id="transcript-search"
           type="search"
           placeholder="Search transcript"
@@ -331,7 +341,8 @@ function Editor({ initial }: { initial: Job }) {
           }}
         />
         <Button
-          className="secondary small"
+          variant="outline"
+          size="sm"
           aria-label="Previous search match"
           onClick={() =>
             setMatchIndex(
@@ -344,7 +355,8 @@ function Editor({ initial }: { initial: Job }) {
           ↑
         </Button>
         <Button
-          className="secondary small"
+          variant="outline"
+          size="sm"
           aria-label="Next search match"
           onClick={() =>
             setMatchIndex(
@@ -360,7 +372,8 @@ function Editor({ initial }: { initial: Job }) {
             : ""}
         </span>
         <Button
-          className="secondary small"
+          variant="outline"
+          size="sm"
           onClick={() => {
             const last = undo.current.pop();
             if (last) updateSegment(last.id, last.text);
@@ -369,7 +382,8 @@ function Editor({ initial }: { initial: Job }) {
           Undo
         </Button>
         <Button
-          className="secondary small"
+          variant="outline"
+          size="sm"
           onClick={async () => {
             await save();
             await navigator.clipboard.writeText(
@@ -383,17 +397,17 @@ function Editor({ initial }: { initial: Job }) {
         <label className="visually-hidden" htmlFor="export-format">
           Export format
         </label>
-        <select
+        <NativeSelect
           id="export-format"
           value={format}
           onChange={(event) => setFormat(event.target.value)}
         >
-          <option value="txt">TXT</option>
-          <option value="srt">SRT</option>
-          <option value="vtt">VTT</option>
-        </select>
+          <NativeSelectOption value="txt">TXT</NativeSelectOption>
+          <NativeSelectOption value="srt">SRT</NativeSelectOption>
+          <NativeSelectOption value="vtt">VTT</NativeSelectOption>
+        </NativeSelect>
         <Button
-          className="small"
+          size="sm"
           onClick={async () => {
             await save();
             const link = document.createElement("a");
@@ -428,27 +442,26 @@ function Editor({ initial }: { initial: Job }) {
             <label className="visually-hidden" htmlFor="speed">
               Playback speed
             </label>
-            <select
+            <NativeSelect
               id="speed"
               value={speed}
               onChange={(event) => setSpeed(Number(event.target.value))}
             >
               {[0.75, 1, 1.25, 1.5, 2].map((value) => (
-                <option key={value} value={value}>
+                <NativeSelectOption key={value} value={value}>
                   {value}×
-                </option>
+                </NativeSelectOption>
               ))}
-            </select>
+            </NativeSelect>
           </>
         ) : (
           <p className="helper">Recording removed. Playback unavailable.</p>
         )}
       </div>
       <label className="toggle-row">
-        <input
-          type="checkbox"
+        <Checkbox
           checked={follow}
-          onChange={(event) => setFollow(event.target.checked)}
+          onCheckedChange={(checked) => setFollow(checked === true)}
         />{" "}
         Follow playback
       </label>
@@ -473,7 +486,7 @@ function Editor({ initial }: { initial: Job }) {
               >
                 {time(segment.start)}
               </button>
-              <textarea
+              <Textarea
                 aria-label={`Segment at ${time(segment.start)}`}
                 rows={2}
                 value={segment.text}
@@ -490,7 +503,8 @@ function Editor({ initial }: { initial: Job }) {
       </div>
       <div className="editor-foot">
         <Button
-          className="secondary small danger-text"
+          variant="destructive"
+          size="sm"
           onClick={() =>
             setConfirm({
               title: "Delete transcription?",
@@ -498,29 +512,21 @@ function Editor({ initial }: { initial: Job }) {
               label: "Delete selected items",
               danger: true,
               options: (
-                <div id="dialog-options">
+                <RadioGroup
+                  id="dialog-options"
+                  defaultValue={scope}
+                  onValueChange={(value) => setScope(String(value))}
+                >
                   <label>
-                    <input
-                      type="radio"
-                      name="scope"
-                      value="transcript"
-                      checked={scope === "transcript"}
-                      onChange={() => setScope("transcript")}
-                    />
+                    <RadioGroupItem value="transcript" />
                     Delete transcript and playback audio; keep original
                     recording
                   </label>
                   <label>
-                    <input
-                      type="radio"
-                      name="scope"
-                      value="all"
-                      checked={scope === "all"}
-                      onChange={() => setScope("all")}
-                    />
+                    <RadioGroupItem value="all" />
                     Delete transcript, playback audio, and original recording
                   </label>
-                </div>
+                </RadioGroup>
               ),
             })
           }

@@ -1,17 +1,30 @@
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import type { ButtonHTMLAttributes, ReactNode } from "react";
-import { useEffect, useRef } from "react";
-import { createPortal } from "react-dom";
 import { Link } from "@tanstack/react-router";
+import { motion, useReducedMotion } from "motion/react";
+import type { ReactNode } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button as ShadcnButton } from "@/components/ui/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { Progress } from "@/components/ui/progress";
+import { cn } from "@/lib/utils";
 import { date, time, titleCase } from "../lib/api";
 import type { Job } from "../lib/types";
 
-export function Button({
-  className = "",
-  ...props
-}: ButtonHTMLAttributes<HTMLButtonElement>) {
-  return <button className={`button ${className}`.trim()} {...props} />;
-}
+export const Button = ShadcnButton;
 
 export function PageHeader({
   title,
@@ -40,11 +53,20 @@ export function ProgressBar({
   value: number | null;
   label: string;
 }) {
-  return <progress aria-label={label} max="100" value={value ?? undefined} />;
+  return <Progress aria-label={label} value={value} />;
 }
 
 export function StatusBadge({ state }: { state: string }) {
-  return <span className={`status ${state}`}>{titleCase(state)}</span>;
+  const variant = ["failed", "interrupted"].includes(state)
+    ? "destructive"
+    : ["transcribing", "preparing", "queued", "saving"].includes(state)
+      ? "secondary"
+      : "outline";
+  return (
+    <Badge variant={variant} className={cn("status", state)}>
+      {titleCase(state)}
+    </Badge>
+  );
 }
 
 export function HistoryRow({ job }: { job: Job }) {
@@ -76,10 +98,12 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="empty-state">
-      <h2>{title}</h2>
-      {action}
-    </div>
+    <Empty className="empty-state">
+      <EmptyHeader>
+        <EmptyTitle>{title}</EmptyTitle>
+      </EmptyHeader>
+      {action && <EmptyContent>{action}</EmptyContent>}
+    </Empty>
   );
 }
 
@@ -98,49 +122,34 @@ export function ConfirmDialog({
   request: ConfirmRequest | null;
   onClose: (confirmed: boolean) => void;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null);
-  const reduced = useReducedMotion();
-  useEffect(() => {
-    if (request && dialog.current && !dialog.current.open)
-      dialog.current.showModal();
-    if (!request && dialog.current?.open) dialog.current.close();
-  }, [request]);
-  if (typeof document === "undefined") return null;
-  return createPortal(
-    <AnimatePresence>
+  return (
+    <AlertDialog
+      open={!!request}
+      onOpenChange={(open) => {
+        if (!open && request) onClose(false);
+      }}
+    >
       {request && (
-        <dialog ref={dialog} onCancel={() => onClose(false)}>
-          <motion.div
-            initial={{
-              opacity: 0,
-              y: reduced ? 0 : 8,
-              scale: reduced ? 1 : 0.985,
-            }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{
-              duration: reduced ? 0.1 : 0.18,
-              ease: [0.23, 1, 0.32, 1],
-            }}
-          >
-            <h2>{request.title}</h2>
-            <p>{request.description}</p>
-            {request.options}
-            <div className="dialog-actions">
-              <Button className="secondary" onClick={() => onClose(false)}>
-                Cancel
-              </Button>
-              <Button
-                className={request.danger ? "danger" : ""}
-                onClick={() => onClose(true)}
-              >
-                {request.label}
-              </Button>
-            </div>
-          </motion.div>
-        </dialog>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{request.title}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {request.description}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {request.options}
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant={request.danger ? "destructive" : "default"}
+              onClick={() => onClose(true)}
+            >
+              {request.label}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
       )}
-    </AnimatePresence>,
-    document.body,
+    </AlertDialog>
   );
 }
 
