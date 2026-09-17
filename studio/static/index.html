@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f7f4ee" />
+    <meta
+      name="description"
+      content="Your private listening studio. Turn recordings into words, entirely on your computer."
+    />
+    <title>Whisper Studio · A little room for your words</title>
+    <link rel="icon" type="image/svg+xml" href="/static/mark.svg" />
+    <link rel="stylesheet" href="/static/styles.css" />
+    <script src="/static/app.js" type="module"></script>
+  </head>
+  <body>
+    <a class="skip" href="#workspace">Skip to workspace</a>
+    <aside class="rail">
+      <a class="brand" href="#new" aria-label="Whisper Studio home"
+        ><img src="/static/mark.svg" alt="" width="38" height="38" /><span
+          >whisper<span class="brand-small">YOUR LOCAL STUDIO</span></span
+        ></a
+      >
+      <div class="rail-caption">A PLACE TO LISTEN</div>
+      <nav aria-label="Main navigation">
+        <a href="#new" data-nav="new"
+          ><span aria-hidden="true">＋</span> New transcription</a
+        >
+        <a href="#library" data-nav="library"
+          ><span aria-hidden="true">▤</span> Your library
+          <span id="library-count" class="count"></span
+        ></a>
+        <a href="#settings" data-nav="settings"
+          ><span aria-hidden="true">⚙</span> Studio settings</a
+        >
+      </nav>
+      <div class="rail-note">
+        <svg viewBox="0 0 180 64" aria-hidden="true">
+          <path d="M0 33h24q6 0 9-14t9 14 9 21 9-21 9-29 9 29 9 12 9-12h74" />
+        </svg>
+        <p>Every voice has a story.<br />Give yours a little space.</p>
+      </div>
+      <div class="privacy">
+        <span class="dot"></span>
+        <div>
+          Made to stay yours<small>Local processing. No subscriptions.</small>
+        </div>
+      </div>
+    </aside>
+    <div class="main-shell">
+      <header class="topbar">
+        <span id="breadcrumb">THE LISTENING ROOM</span
+        ><span class="local-badge"
+          ><span class="dot"></span
+          ><span id="connection">Local engine</span></span
+        >
+      </header>
+      <div id="notice" class="notice" role="status" hidden></div>
+      <main id="workspace" tabindex="-1">
+        <p class="loading">Opening your studio…</p>
+      </main>
+      <footer>
+        <span>A little room for your words.</span
+        ><span>POWERED BY LOCAL WHISPER <span aria-hidden="true">↗</span></span>
+      </footer>
+    </div>
+    <dialog id="confirm-dialog">
+      <form method="dialog">
+        <span class="eyebrow">A MOMENT TO CHECK</span>
+        <h2 id="dialog-title"></h2>
+        <p id="dialog-description"></p>
+        <div id="dialog-options"></div>
+        <div class="dialog-actions">
+          <button value="cancel" class="button secondary">Go back</button
+          ><button value="confirm" class="button" id="dialog-confirm">
+            Confirm
+          </button>
+        </div>
+      </form>
+    </dialog>
+  </body>
+</html>

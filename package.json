@@ -1,0 +1,14 @@
+{
+  "name": "whisper-studio-browser-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:e2e": "playwright test",
+    "check:format": "prettier --check studio/static/app.js studio/static/styles.css studio/static/index.html tests/browser/studio.spec.js playwright.config.js"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.11.0",
+    "@playwright/test": "^1.58.0",
+    "prettier": "^3.9.7"
+  }
+}
