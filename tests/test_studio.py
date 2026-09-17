@@ -7,6 +7,17 @@ from studio.store import Store
 from tests.conftest import import_audio, new_job, wait_state
 
 
+def test_client_bootstrap_respects_strict_csp(client):
+    response = client.get("/")
+    assert response.status_code == 200
+    for script in response.text.split("<script")[1:]:
+        attributes = script.split(">", 1)[0]
+        assert "src=" in attributes
+    policy = response.headers["content-security-policy"]
+    assert "script-src 'self'" in policy
+    assert "unsafe-inline" not in policy
+
+
 def test_full_pipeline_edit_export_playback_delete(client, audio, app):
     created = new_job(client, audio)
     job = wait_state(client, created["id"])

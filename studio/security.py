@@ -1,8 +1,4 @@
-import base64
-import hashlib
 import os
-import re
-from pathlib import Path
 from urllib.parse import urlsplit
 
 import jwt
@@ -19,16 +15,6 @@ class Boundary:
         self.jwks = (
             jwt.PyJWKClient(f"https://{self.team}/cdn-cgi/access/certs", timeout=5) if self.team else None
         )
-        index = Path(__file__).parent / "static" / "index.html"
-        html = index.read_text() if index.exists() else ""
-        scripts = re.findall(r"<script([^>]*)>(.*?)</script>", html, re.DOTALL)
-        self.script_hashes = [
-            "'sha256-"
-            + base64.b64encode(hashlib.sha256(body.replace("\0", "\ufffd").encode()).digest()).decode()
-            + "'"
-            for attributes, body in scripts
-            if "src=" not in attributes and body
-        ]
 
     def validate(self, token):
         if not self.jwks or not self.audience or not self.email:
@@ -80,9 +66,8 @@ class Boundary:
             if request.headers.get("x-studio-request") != "1":
                 return JSONResponse({"detail": "Missing application request header."}, status_code=403)
         response = await call_next(request)
-        hashes = " ".join(self.script_hashes)
         response.headers["Content-Security-Policy"] = (
-            f"default-src 'self'; script-src 'self' {hashes}; style-src 'self'; img-src 'self' data:; font-src 'self'; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'"
+            "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'"
         )
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"
