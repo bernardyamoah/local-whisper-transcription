@@ -717,10 +717,15 @@ dd {
   border-radius: 12px;
   padding: 15px 19px;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 18px;
   margin-bottom: 25px;
   box-shadow: 0 4px 20px #20242109;
+}
+.rare-audio-player {
+  flex: 1 0 100%;
+  width: 100%;
 }
 .player audio {
   flex: 1;

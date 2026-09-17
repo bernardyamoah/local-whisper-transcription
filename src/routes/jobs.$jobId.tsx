@@ -8,6 +8,7 @@ import {
   NativeSelectOption,
 } from "@/components/ui/native-select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { StepPlayer } from "@/components/ui/step-player";
 import { Textarea } from "@/components/ui/textarea";
 import { useStudio } from "../components/studio-context";
 import {
@@ -191,6 +192,8 @@ function Editor({ initial }: { initial: Job }) {
   const [format, setFormat] = useState("txt");
   const [speed, setSpeed] = useState(1);
   const [follow, setFollow] = useState(true);
+  const [playing, setPlaying] = useState(false);
+  const [playbackTime, setPlaybackTime] = useState(0);
   const [active, setActive] = useState<number>();
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
   const [scope, setScope] = useState("all");
@@ -278,6 +281,12 @@ function Editor({ initial }: { initial: Job }) {
     scheduleSave();
   }
 
+  function playAudio() {
+    void audio.current?.play().catch((reason: DOMException) => {
+      if (reason.name !== "AbortError") notice(reason.message, true);
+    });
+  }
+
   async function remove(accepted: boolean) {
     setConfirm(null);
     if (!accepted) return;
@@ -296,6 +305,17 @@ function Editor({ initial }: { initial: Job }) {
   const selectedMatch = matches.length
     ? matches[Math.min(matchIndex, matches.length - 1)]
     : undefined;
+  const playerSegments = useMemo(() => {
+    if (segments.length <= 8) return segments;
+    return Array.from(
+      { length: 8 },
+      (_, index) => segments[Math.round((index * (segments.length - 1)) / 7)],
+    );
+  }, [segments]);
+  let playerStep = 0;
+  playerSegments.forEach((segment, index) => {
+    if (segment.start <= playbackTime) playerStep = index;
+  });
   return (
     <section>
       <h1 className="visually-hidden">Transcript editor</h1>
@@ -421,12 +441,40 @@ function Editor({ initial }: { initial: Job }) {
       <div className="player">
         {initial.playback_available ? (
           <>
+            <StepPlayer
+              className="rare-audio-player"
+              steps={playerSegments.map((segment) => ({
+                label: `Play from ${time(segment.start)}`,
+              }))}
+              value={playerStep}
+              playing={playing}
+              duration={0}
+              size={34}
+              seekable
+              controlPosition="left"
+              onValueChange={(index) => {
+                const segment = playerSegments[index];
+                if (!audio.current || !segment) return;
+                audio.current.currentTime = segment.start;
+                setPlaybackTime(segment.start);
+                setActive(segment.id);
+              }}
+              onPlayingChange={(next) => {
+                if (!audio.current) return;
+                if (next) playAudio();
+                else audio.current.pause();
+              }}
+            />
             <audio
               ref={audio}
               controls
               preload="metadata"
               src={`/api/jobs/${initial.id}/audio`}
+              onPlay={() => setPlaying(true)}
+              onPause={() => setPlaying(false)}
+              onEnded={() => setPlaying(false)}
               onTimeUpdate={(event) => {
+                setPlaybackTime(event.currentTarget.currentTime);
                 const current = segments.find(
                   (segment) =>
                     segment.start <= event.currentTarget.currentTime &&
@@ -480,7 +528,7 @@ function Editor({ initial }: { initial: Job }) {
                 onClick={() => {
                   if (audio.current) {
                     audio.current.currentTime = segment.start;
-                    void audio.current.play();
+                    playAudio();
                   }
                 }}
               >

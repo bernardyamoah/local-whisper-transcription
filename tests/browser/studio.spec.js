@@ -48,6 +48,24 @@ test("import, process, edit, reload, search, copy, export and delete", async ({
   await expect(page.locator("#transcript-title")).toBeVisible({
     timeout: 15000,
   });
+  const audio = page.locator("audio");
+  const transport = page.locator('[data-slot="step-player-control"]');
+  await transport.click();
+  await expect
+    .poll(() => audio.evaluate((element) => !element.paused))
+    .toBe(true);
+  await transport.click();
+  await expect
+    .poll(() => audio.evaluate((element) => element.paused))
+    .toBe(true);
+  await page
+    .locator('[data-slot="step-player-track"]')
+    .getByRole("button", { name: "Play from 00:01" })
+    .click();
+  await expect
+    .poll(() => audio.evaluate((element) => element.currentTime))
+    .toBeGreaterThanOrEqual(1);
+  await transport.click();
   const text = page.getByRole("textbox", { name: "Segment at 00:00" });
   await text.fill("A corrected thought, saved for later.");
   await expect(page.locator("#save-status")).toHaveText("All changes saved");
