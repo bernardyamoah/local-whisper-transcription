@@ -1,4 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
+import { sileo } from "sileo";
 import {
   createContext,
   useCallback,
@@ -24,16 +25,14 @@ const StudioContext = createContext<StudioState | null>(null);
 export function StudioProvider({ children }: { children: ReactNode }) {
   const [environment, setEnvironment] = useState<Environment>();
   const [settings, setSettings] = useState<Settings>();
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState(false);
   const refreshEnvironment = useCallback(async () => {
     const value = await api<Environment>("/environment");
     setEnvironment(value);
     return value;
   }, []);
   const notice = useCallback((value: string, isError = false) => {
-    setMessage(value);
-    setError(isError);
+    if (!value) return sileo.clear();
+    (isError ? sileo.error : sileo.success)({ title: value });
   }, []);
   useEffect(() => {
     Promise.all([refreshEnvironment(), api<Settings>("/settings")])
@@ -49,11 +48,6 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   );
   return (
     <StudioContext.Provider value={value}>
-      {message && (
-        <div className={`notice ${error ? "error" : ""}`} role="status">
-          {message}
-        </div>
-      )}
       {value ? children : <p className="loading">Loading…</p>}
     </StudioContext.Provider>
   );

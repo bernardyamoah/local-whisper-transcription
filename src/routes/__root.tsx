@@ -6,6 +6,7 @@ import {
   createRootRoute,
 } from "@tanstack/react-router";
 import type { ReactNode } from "react";
+import { Toaster } from "sileo";
 import { HookSidebar } from "@/components/ui/hook-sidebar";
 import "../styles.css";
 import {
@@ -67,6 +68,7 @@ function Document({ children }: { children: ReactNode }) {
         <HeadContent />
       </head>
       <body>
+        <Toaster position="top-center" />
         {children}
         <Scripts />
       </body>

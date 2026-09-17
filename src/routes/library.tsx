@@ -6,13 +6,10 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useCallback, useEffect, useState } from "react";
+import { AppSelect } from "@/components/app-select";
 import { buttonVariants } from "@/components/ui/button";
 import { DeleteButton } from "@/components/ui/delete-button";
 import { Input } from "@/components/ui/input";
-import {
-  NativeSelect,
-  NativeSelectOption,
-} from "@/components/ui/native-select";
 import { useStudio } from "../components/studio-context";
 import { Button, EmptyState, HistoryRow, PageHeader } from "../components/ui";
 import { api, bytes, time } from "../lib/api";
@@ -91,20 +88,21 @@ function Library() {
         <label className="visually-hidden" htmlFor="history-sort">
           Sort library
         </label>
-        <NativeSelect
+        <AppSelect
           id="history-sort"
           value={sort}
-          onChange={(event) => {
-            setSort(event.target.value);
+          onValueChange={(value) => {
+            setSort(value);
             setOffset(0);
           }}
-        >
-          <NativeSelectOption value="newest">Newest</NativeSelectOption>
-          <NativeSelectOption value="oldest">Oldest</NativeSelectOption>
-          <NativeSelectOption value="title">Title</NativeSelectOption>
-          <NativeSelectOption value="duration">Duration</NativeSelectOption>
-          <NativeSelectOption value="status">Status</NativeSelectOption>
-        </NativeSelect>
+          options={[
+            { value: "newest", label: "Newest" },
+            { value: "oldest", label: "Oldest" },
+            { value: "title", label: "Title" },
+            { value: "duration", label: "Duration" },
+            { value: "status", label: "Status" },
+          ]}
+        />
       </div>
       {jobs.length ? (
         jobs.map((job) => <HistoryRow key={job.id} job={job} />)

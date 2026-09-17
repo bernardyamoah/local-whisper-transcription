@@ -90,6 +90,8 @@ export type StepPlayerProps = Omit<
   defaultPlaying?: boolean;
   onPlayingChange?: (playing: boolean) => void;
   duration?: number;
+  stepProgress?: number;
+  ended?: boolean;
   loop?: boolean;
   onComplete?: () => void;
   size?: number;
@@ -208,6 +210,8 @@ function StepPlayer({
   defaultPlaying = false,
   onPlayingChange,
   duration = 4000,
+  stepProgress,
+  ended,
   loop = false,
   onComplete,
   size = 48,
@@ -242,6 +246,11 @@ function StepPlayer({
   const progress = useMotionValue(0);
   const fillWidth = useTransform(progress, (p) => `${p * 100}%`);
   const stepDuration = items[index]?.duration ?? duration;
+  useEffect(() => {
+    if (stepProgress !== undefined)
+      progress.set(Math.max(0, Math.min(1, stepProgress)));
+  }, [stepProgress, progress]);
+  const isFinished = ended ?? finished;
 
   // a new onComplete identity would restart the running step
   const onCompleteRef = useRef(onComplete);
@@ -310,7 +319,7 @@ function StepPlayer({
   ]);
 
   const handleControl = () => {
-    if (finished) {
+    if (isFinished) {
       commitIndex(0);
       commitPlaying(true);
       return;
@@ -320,7 +329,7 @@ function StepPlayer({
 
   const minTrack =
     metrics.pad * 2 + metrics.bar + (count - 1) * (metrics.dot + metrics.gap);
-  const iconState: IconState = finished
+  const iconState: IconState = isFinished
     ? "replay"
     : isPlaying
       ? "pause"
@@ -331,7 +340,7 @@ function StepPlayer({
     <div
       data-slot="step-player"
       data-playing={isPlaying || undefined}
-      data-finished={finished || undefined}
+      data-finished={isFinished || undefined}
       className={cn(
         "inline-flex items-center text-[#476653]",
         controlPosition === "right" && "flex-row-reverse",
@@ -345,7 +354,7 @@ function StepPlayer({
           data-slot="step-player-control"
           type="button"
           onClick={handleControl}
-          aria-label={finished ? "Replay" : isPlaying ? "Pause" : "Play"}
+          aria-label={isFinished ? "Replay" : isPlaying ? "Pause" : "Play"}
           whileTap={shouldReduceMotion ? undefined : { scale: 0.88 }}
           transition={shouldReduceMotion ? { duration: 0 } : TAP_SPRING}
           style={{ width: metrics.track, height: metrics.track }}

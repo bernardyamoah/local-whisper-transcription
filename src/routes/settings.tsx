@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { AppSelect } from "@/components/app-select";
 import { Badge } from "@/components/ui/badge";
 import { AnimatedCounter } from "@/components/ui/animated-counter";
 import { buttonVariants } from "@/components/ui/button";
@@ -7,10 +8,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { DeleteButton } from "@/components/ui/delete-button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import {
-  NativeSelect,
-  NativeSelectOption,
-} from "@/components/ui/native-select";
 import { useStudio } from "../components/studio-context";
 import {
   Button,
@@ -29,7 +26,6 @@ function SettingsPage() {
     useStudio();
   const [draft, setDraft] = useState(settings);
   const [query, setQuery] = useState("");
-  const [saved, setSaved] = useState("");
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
   const [pendingAction, setPendingAction] = useState<
     null | (() => Promise<void>)
@@ -52,7 +48,7 @@ function SettingsPage() {
         body: JSON.stringify(draft),
       });
       setSettings(value);
-      setSaved("Preferences saved");
+      notice("Preferences saved");
     } catch (reason) {
       notice((reason as Error).message, true);
     }
@@ -113,47 +109,38 @@ function SettingsPage() {
               <FieldLabel htmlFor="default-language">
                 Default language
               </FieldLabel>
-              <NativeSelect
+              <AppSelect
                 id="default-language"
-                className="w-full"
                 value={draft.language}
-                onChange={(event) =>
-                  setDraft({ ...draft, language: event.target.value })
-                }
-              >
-                <NativeSelectOption value="auto">
-                  Detect automatically
-                </NativeSelectOption>
-                {[...environment.languages]
-                  .sort((a, b) =>
-                    (names.of(a) || a).localeCompare(names.of(b) || b),
-                  )
-                  .map((code) => (
-                    <NativeSelectOption key={code} value={code}>
-                      {names.of(code)}
-                    </NativeSelectOption>
-                  ))}
-              </NativeSelect>
+                onValueChange={(language) => setDraft({ ...draft, language })}
+                options={[
+                  { value: "auto", label: "Detect automatically" },
+                  ...[...environment.languages]
+                    .sort((a, b) =>
+                      (names.of(a) || a).localeCompare(names.of(b) || b),
+                    )
+                    .map((code) => ({
+                      value: code,
+                      label: names.of(code) || code,
+                    })),
+                ]}
+              />
             </Field>
             <Field className="field">
               <FieldLabel htmlFor="default-preset">Default quality</FieldLabel>
-              <NativeSelect
+              <AppSelect
                 id="default-preset"
-                className="w-full"
                 value={draft.preset}
-                onChange={(event) =>
+                onValueChange={(preset) =>
                   setDraft({
                     ...draft,
-                    preset: event.target.value as Settings["preset"],
+                    preset: preset as Settings["preset"],
                   })
                 }
-              >
-                {(["fast", "balanced", "accurate"] as const).map((value) => (
-                  <NativeSelectOption key={value} value={value}>
-                    {titleCase(value)}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
+                options={(["fast", "balanced", "accurate"] as const).map(
+                  (value) => ({ value, label: titleCase(value) }),
+                )}
+              />
             </Field>
             <Field className="field">
               <FieldLabel htmlFor="duration-limit">
@@ -177,21 +164,21 @@ function SettingsPage() {
             </Field>
             <Field className="field">
               <FieldLabel htmlFor="hardware">Hardware (next job)</FieldLabel>
-              <NativeSelect
+              <AppSelect
                 id="hardware"
-                className="w-full"
                 value={draft.hardware}
-                onChange={(event) =>
+                onValueChange={(hardware) =>
                   setDraft({
                     ...draft,
-                    hardware: event.target.value as Settings["hardware"],
+                    hardware: hardware as Settings["hardware"],
                   })
                 }
-              >
-                <NativeSelectOption value="auto">Automatic</NativeSelectOption>
-                <NativeSelectOption value="cpu">CPU</NativeSelectOption>
-                <NativeSelectOption value="cuda">CUDA</NativeSelectOption>
-              </NativeSelect>
+                options={[
+                  { value: "auto", label: "Automatic" },
+                  { value: "cpu", label: "CPU" },
+                  { value: "cuda", label: "CUDA" },
+                ]}
+              />
             </Field>
             <label className="toggle-row">
               <Checkbox
@@ -203,9 +190,6 @@ function SettingsPage() {
               <span>Keep recordings after transcription</span>
             </label>
             <Button type="submit">Save preferences</Button>
-            <span id="settings-saved" className="save-status" role="status">
-              {saved}
-            </span>
           </form>
         </div>
         <div>

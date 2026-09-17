@@ -3,11 +3,8 @@ import { ArrowUpRight01Icon, FileAudioIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { motion, useReducedMotion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { AppSelect } from "@/components/app-select";
 import { Input } from "@/components/ui/input";
-import {
-  NativeSelect,
-  NativeSelectOption,
-} from "@/components/ui/native-select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useStudio } from "../components/studio-context";
 import {
@@ -160,15 +157,15 @@ function NewTranscription() {
             }}
           >
             <div className="capture-wave" aria-hidden="true">
-              {Array.from({ length: 49 }, (_, i) => (
+              {Array.from({ length: 41 }, (_, i) => (
                 <span
                   key={i}
                   style={{
                     height:
                       12 +
-                      Math.pow(Math.sin(i * 0.71), 2) *
-                        (1 - Math.abs(i - 24) / 28) *
-                        104 +
+                      Math.pow(Math.sin(i * 0.19), 2) *
+                        (1 - Math.abs(i - 20) / 26) *
+                        140 +
                       "px",
                     animationDelay: i * -0.09 + "s",
                   }}
@@ -232,7 +229,7 @@ function NewTranscription() {
               </div>
             )}
             <div className="capture-status" role="status">
-              {dragging ? "Drop to import" : uploadStatus}
+              {dragging && media ? "Drop to replace" : uploadStatus}
               {upload !== null && (
                 <ProgressBar value={upload} label="Upload progress" />
               )}
@@ -241,25 +238,22 @@ function NewTranscription() {
           <div className="configuration">
             <div className="field">
               <label htmlFor="language">Recording language</label>
-              <NativeSelect
+              <AppSelect
                 id="language"
-                className="w-full"
                 value={language}
-                onChange={(event) => setLanguage(event.target.value)}
-              >
-                <NativeSelectOption value="auto">
-                  Detect automatically
-                </NativeSelectOption>
-                {[...environment.languages]
-                  .sort((a, b) =>
-                    (names.of(a) || a).localeCompare(names.of(b) || b),
-                  )
-                  .map((code) => (
-                    <NativeSelectOption key={code} value={code}>
-                      {names.of(code)}
-                    </NativeSelectOption>
-                  ))}
-              </NativeSelect>
+                onValueChange={setLanguage}
+                options={[
+                  { value: "auto", label: "Detect automatically" },
+                  ...[...environment.languages]
+                    .sort((a, b) =>
+                      (names.of(a) || a).localeCompare(names.of(b) || b),
+                    )
+                    .map((code) => ({
+                      value: code,
+                      label: names.of(code) || code,
+                    })),
+                ]}
+              />
             </div>
             <div className="field">
               <span className="label" id="quality-label">
@@ -284,18 +278,15 @@ function NewTranscription() {
             </div>
             <div className="field">
               <label htmlFor="model">Model</label>
-              <NativeSelect
+              <AppSelect
                 id="model"
-                className="w-full"
                 value={model}
-                onChange={(event) => setModel(event.target.value)}
-              >
-                {installed.map((item) => (
-                  <NativeSelectOption key={item.id} value={item.id}>
-                    {item.name}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
+                onValueChange={setModel}
+                options={installed.map((item) => ({
+                  value: item.id,
+                  label: item.name,
+                }))}
+              />
             </div>
             <div className="configuration-bottom">
               <p className="helper">

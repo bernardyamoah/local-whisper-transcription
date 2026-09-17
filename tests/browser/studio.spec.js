@@ -18,6 +18,11 @@ function wav() {
   return b;
 }
 
+async function choose(page, selector, label) {
+  await page.locator(selector).click();
+  await page.getByRole("option", { name: label, exact: true }).click();
+}
+
 test("import, process, edit, reload, search, copy, export and delete", async ({
   page,
   context,
@@ -78,7 +83,7 @@ test("import, process, edit, reload, search, copy, export and delete", async ({
     "A corrected thought",
   );
   for (const format of ["txt", "srt", "vtt"]) {
-    await page.locator("#export-format").selectOption(format);
+    await choose(page, "#export-format", format.toUpperCase());
     const download = page.waitForEvent("download");
     await page.getByRole("button", { name: "Export" }).click();
     const file = await download;
@@ -94,7 +99,7 @@ test("import, process, edit, reload, search, copy, export and delete", async ({
   });
   const accessibility = await new AxeBuilder({ page }).analyze();
   expect(accessibility.violations).toEqual([]);
-  await page.locator("#delete-scope").selectOption("all");
+  await choose(page, "#delete-scope", "Everything");
   const deleteControl = page.locator(
     ".editor-foot [data-slot='delete-button']",
   );
@@ -128,9 +133,9 @@ for (const width of [1440, 768, 390]) {
     expect(accessibility.violations).toEqual([]);
     await page.getByRole("link", { name: "Settings" }).click();
     await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
-    await page.getByLabel("Default quality").selectOption("fast");
+    await choose(page, "#default-preset", "Fast");
     await page.getByRole("button", { name: "Save preferences" }).click();
-    await expect(page.locator("#settings-saved")).toContainText(
+    await expect(page.locator("[data-sileo-title]")).toContainText(
       "Preferences saved",
     );
     expect(
