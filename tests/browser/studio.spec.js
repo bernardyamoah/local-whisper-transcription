@@ -29,6 +29,15 @@ test("import, process, edit, reload, search, copy, export and delete", async ({
   await expect(
     page.getByRole("heading", { name: "New transcription" }),
   ).toBeVisible();
+  await expect(page.locator('link[rel="stylesheet"]')).toHaveAttribute(
+    "href",
+    /\/assets\/.*\.css$/,
+  );
+  expect(
+    await page
+      .getByRole("heading", { name: "New transcription" })
+      .evaluate((element) => getComputedStyle(element).fontFamily),
+  ).toContain("Studio Serif");
   await page.locator("#file-input").setInputFiles({
     name: "A conversation.wav",
     mimeType: "audio/wav",

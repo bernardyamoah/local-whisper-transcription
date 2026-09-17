@@ -10,6 +10,7 @@ import {
   LegacyHashRedirect,
   StudioProvider,
 } from "../components/studio-context";
+import "../../studio/static/styles.css";
 
 export const Route = createRootRoute({
   head: () => ({
@@ -20,10 +21,7 @@ export const Route = createRootRoute({
       { name: "description", content: "Local audio and video transcription." },
       { title: "Whisper Studio" },
     ],
-    links: [
-      { rel: "icon", type: "image/svg+xml", href: "/static/mark.svg" },
-      { rel: "stylesheet", href: "/static/styles.css" },
-    ],
+    links: [{ rel: "icon", type: "image/svg+xml", href: "/static/mark.svg" }],
   }),
   component: Root,
 });
