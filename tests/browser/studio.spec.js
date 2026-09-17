@@ -94,8 +94,14 @@ test("import, process, edit, reload, search, copy, export and delete", async ({
   });
   const accessibility = await new AxeBuilder({ page }).analyze();
   expect(accessibility.violations).toEqual([]);
-  await page.getByRole("button", { name: "Delete…" }).click();
-  await page.getByRole("button", { name: "Delete selected items" }).click();
+  await page.locator("#delete-scope").selectOption("all");
+  const deleteControl = page.locator(
+    ".editor-foot [data-slot='delete-button']",
+  );
+  await deleteControl
+    .getByRole("button", { name: "Delete", exact: true })
+    .click();
+  await deleteControl.getByRole("button", { name: "Confirm delete" }).click();
   await expect(page.getByRole("heading", { name: "Library" })).toBeVisible();
   expect(errors).toEqual([]);
 });
@@ -276,4 +282,38 @@ test("model download shows measured progress, survives reload, and verifies befo
   await expect(page.locator('.model-row[data-model="base"]')).not.toContainText(
     "Installed",
   );
+});
+
+test("drop recording anywhere on stage and replace it", async ({ page }) => {
+  await page.goto("/");
+  const stage = page.locator(".capture-stage");
+  const transfer = await page.evaluateHandle(
+    (bytes) => {
+      const data = new DataTransfer();
+      data.items.add(
+        new File([new Uint8Array(bytes)], "Dropped.wav", { type: "audio/wav" }),
+      );
+      return data;
+    },
+    [...wav()],
+  );
+  await stage.dispatchEvent("dragenter", { dataTransfer: transfer });
+  await expect(stage).toHaveAttribute("data-dragging", "true");
+  await page
+    .locator(".capture-wave")
+    .dispatchEvent("dragenter", { dataTransfer: transfer });
+  await page
+    .locator(".capture-wave")
+    .dispatchEvent("dragleave", { dataTransfer: transfer });
+  await expect(stage).toHaveAttribute("data-dragging", "true");
+  await stage.dispatchEvent("dragleave", { dataTransfer: transfer });
+  await expect(stage).toHaveAttribute("data-dragging", "false");
+  await stage.dispatchEvent("dragenter", { dataTransfer: transfer });
+  await stage.dispatchEvent("drop", { dataTransfer: transfer });
+  await expect(page.locator("#recording-title")).toHaveValue("Dropped");
+  await expect(stage).toHaveAttribute("data-dragging", "false");
+  await page.locator("#recording-title").fill("Renamed");
+  await stage.dispatchEvent("drop", { dataTransfer: transfer });
+  await expect(page.locator("#recording-title")).toHaveValue("Dropped");
+  await transfer.dispose();
 });

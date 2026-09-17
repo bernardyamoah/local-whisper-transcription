@@ -1,20 +1,14 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import { buttonVariants } from "@/components/ui/button";
+import { DeleteButton } from "@/components/ui/delete-button";
 import { Input } from "@/components/ui/input";
 import {
   NativeSelect,
   NativeSelectOption,
 } from "@/components/ui/native-select";
 import { useStudio } from "../components/studio-context";
-import {
-  Button,
-  ConfirmDialog,
-  EmptyState,
-  HistoryRow,
-  PageHeader,
-  type ConfirmRequest,
-} from "../components/ui";
+import { Button, EmptyState, HistoryRow, PageHeader } from "../components/ui";
 import { api, bytes, time } from "../lib/api";
 import type { Job, Media } from "../lib/types";
 
@@ -29,8 +23,6 @@ function Library() {
   const [sort, setSort] = useState("newest");
   const [offset, setOffset] = useState(0);
   const [total, setTotal] = useState(0);
-  const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
-  const [removeId, setRemoveId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -53,15 +45,12 @@ function Library() {
     return () => window.clearTimeout(timer);
   }, [refresh]);
 
-  async function close(accepted: boolean) {
-    setConfirm(null);
-    if (!accepted || !removeId) return;
+  async function remove(id: string) {
     try {
-      await api(`/media/${removeId}`, {
+      await api(`/media/${id}`, {
         method: "DELETE",
         body: JSON.stringify({ confirm: true }),
       });
-      setRemoveId(null);
       await refresh();
     } catch (reason) {
       notice((reason as Error).message, true);
@@ -168,30 +157,14 @@ function Library() {
               >
                 Transcribe
               </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => {
-                  setRemoveId(item.id);
-                  setConfirm({
-                    title: "Delete this retained recording?",
-                    description:
-                      "The original file will be permanently removed.",
-                    label: "Delete recording",
-                    danger: true,
-                  });
-                }}
-              >
-                Delete
-              </Button>
+              <DeleteButton
+                className="model-delete"
+                onConfirm={() => void remove(item.id)}
+              />
             </div>
           ))}
         </div>
       )}
-      <ConfirmDialog
-        request={confirm}
-        onClose={(accepted) => void close(accepted)}
-      />
     </section>
   );
 }

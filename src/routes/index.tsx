@@ -34,8 +34,10 @@ function NewTranscription() {
   const [uploadStatus, setUploadStatus] = useState("");
   const [recent, setRecent] = useState<Job[]>([]);
   const [busy, setBusy] = useState(false);
+  const [dragging, setDragging] = useState(false);
   const reduced = useReducedMotion();
   const input = useRef<HTMLInputElement>(null);
+  const dragDepth = useRef(0);
   const names = useMemo(
     () => new Intl.DisplayNames(["en"], { type: "language" }),
     [],
@@ -81,6 +83,8 @@ function NewTranscription() {
     };
     xhr.onload = () => {
       setBusy(false);
+      setUpload(null);
+      setUploadStatus("");
       if (xhr.status >= 200 && xhr.status < 300) {
         const value = JSON.parse(xhr.responseText) as Media;
         setMedia(value);
@@ -93,6 +97,8 @@ function NewTranscription() {
     };
     xhr.onerror = () => {
       setBusy(false);
+      setUpload(null);
+      setUploadStatus("");
       notice("The upload was interrupted.", true);
     };
     xhr.send(file);
@@ -120,73 +126,111 @@ function NewTranscription() {
   }
 
   return (
-    <section>
+    <section className="capture-page">
       <PageHeader title="New transcription" />
       <div className="upload-workspace">
         <div className="upload-panel">
-          {media ? (
-            <motion.div
-              className="file-preview"
-              initial={{ opacity: 0, y: reduced ? 0 : 5 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.18 }}
-            >
-              <span className="file-icon" aria-hidden="true">
-                ≋
-              </span>
-              <label htmlFor="recording-title">Title</label>
-              <Input
-                id="recording-title"
-                type="text"
-                maxLength={200}
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-              />
-              <p>
-                {time(media.duration)} · {bytes(media.size)} · {media.codec}{" "}
-                audio
-              </p>
-              <button className="text-button" onClick={() => setMedia(null)}>
-                Choose another recording
-              </button>
-            </motion.div>
-          ) : (
-            <div
-              className="dropzone"
-              onDragOver={(event) => event.preventDefault()}
-              onDrop={(event) => {
-                event.preventDefault();
-                uploadFile(event.dataTransfer.files[0]);
-              }}
-            >
-              <h2>Drop an audio or video file</h2>
-              <Input
-                ref={input}
-                id="file-input"
-                type="file"
-                aria-label="Choose recording"
-                className="visually-hidden"
-                accept="audio/*,video/*,.mkv,.flac,.ogg,.m4a"
-                disabled={busy}
-                onChange={(event) => uploadFile(event.target.files?.[0])}
-              />
-              <Button
-                type="button"
-                disabled={busy}
-                onClick={() => input.current?.click()}
+          <div
+            className="capture-stage"
+            data-dragging={dragging}
+            aria-busy={busy}
+            onDragEnter={(event) => {
+              if (!event.dataTransfer.types.includes("Files")) return;
+              event.preventDefault();
+              dragDepth.current += 1;
+              if (!busy) setDragging(true);
+            }}
+            onDragLeave={(event) => {
+              event.preventDefault();
+              dragDepth.current = Math.max(0, dragDepth.current - 1);
+              if (!dragDepth.current) setDragging(false);
+            }}
+            onDragOver={(event) => {
+              if (!event.dataTransfer.types.includes("Files")) return;
+              event.preventDefault();
+              event.dataTransfer.dropEffect = busy ? "none" : "copy";
+            }}
+            onDrop={(event) => {
+              event.preventDefault();
+              dragDepth.current = 0;
+              setDragging(false);
+              uploadFile(event.dataTransfer.files[0]);
+            }}
+          >
+            <div className="capture-wave" aria-hidden="true">
+              {Array.from({ length: 49 }, (_, i) => (
+                <span
+                  key={i}
+                  style={{
+                    height:
+                      12 +
+                      Math.pow(Math.sin(i * 0.71), 2) *
+                        (1 - Math.abs(i - 24) / 28) *
+                        104 +
+                      "px",
+                    animationDelay: i * -0.09 + "s",
+                  }}
+                />
+              ))}
+            </div>
+            {media ? (
+              <motion.div
+                className="file-preview"
+                initial={{ opacity: 0, y: reduced ? 0 : 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.18 }}
               >
-                Choose file
-              </Button>
-              <p id="upload-status" aria-live="polite">
-                {uploadStatus}
-              </p>
+                <span className="file-icon" aria-hidden="true">
+                  ≋
+                </span>
+                <label htmlFor="recording-title">Title</label>
+                <Input
+                  id="recording-title"
+                  type="text"
+                  maxLength={200}
+                  value={title}
+                  onChange={(event) => setTitle(event.target.value)}
+                />
+                <p>
+                  {time(media.duration)} · {bytes(media.size)} · {media.codec}{" "}
+                  audio
+                </p>
+                <button
+                  className="text-button"
+                  disabled={busy}
+                  onClick={() => setMedia(null)}
+                >
+                  Replace recording
+                </button>
+              </motion.div>
+            ) : (
+              <div className="dropzone">
+                <h2>{dragging ? "Drop to import" : "Add recording"}</h2>
+                <Input
+                  ref={input}
+                  id="file-input"
+                  type="file"
+                  aria-label="Choose recording"
+                  className="visually-hidden"
+                  accept="audio/*,video/*,.mkv,.flac,.ogg,.m4a"
+                  disabled={busy}
+                  onChange={(event) => uploadFile(event.target.files?.[0])}
+                />
+                <Button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => input.current?.click()}
+                >
+                  Choose file
+                </Button>
+              </div>
+            )}
+            <div className="capture-status" role="status">
+              {dragging ? "Drop to import" : uploadStatus}
               {upload !== null && (
                 <ProgressBar value={upload} label="Upload progress" />
               )}
             </div>
-          )}
-          <div className="format-strip">
-            MP3 · WAV · M4A · AAC · FLAC · OGG · MP4 · MOV · MKV · WEBM
           </div>
           <div className="configuration">
             <div className="field">

@@ -2,12 +2,12 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buttonVariants } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DeleteButton } from "@/components/ui/delete-button";
 import { Input } from "@/components/ui/input";
 import {
   NativeSelect,
   NativeSelectOption,
 } from "@/components/ui/native-select";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { StepPlayer } from "@/components/ui/step-player";
 import { Textarea } from "@/components/ui/textarea";
 import { useStudio } from "../components/studio-context";
@@ -60,7 +60,6 @@ function JobProgress({
   const { notice } = useStudio();
   const navigate = useNavigate();
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
-  const [action, setAction] = useState<"cancel" | "delete" | null>(null);
   const active = [
     "queued",
     "preparing",
@@ -71,22 +70,25 @@ function JobProgress({
 
   async function close(accepted: boolean) {
     setConfirm(null);
-    if (!accepted || !action) return;
+    if (!accepted) return;
     try {
-      if (action === "cancel") {
-        await api(`/jobs/${job.id}/cancel`, { method: "POST" });
-        await reload();
-      } else {
-        await api(`/jobs/${job.id}`, {
-          method: "DELETE",
-          body: JSON.stringify({ scope: "all", confirm: true }),
-        });
-        await navigate({ to: "/library" });
-      }
+      await api(`/jobs/${job.id}/cancel`, { method: "POST" });
+      await reload();
     } catch (reason) {
       notice((reason as Error).message, true);
     }
-    setAction(null);
+  }
+
+  async function remove() {
+    try {
+      await api(`/jobs/${job.id}`, {
+        method: "DELETE",
+        body: JSON.stringify({ scope: "all", confirm: true }),
+      });
+      await navigate({ to: "/library" });
+    } catch (reason) {
+      notice((reason as Error).message, true);
+    }
   }
 
   return (
@@ -123,7 +125,6 @@ function JobProgress({
             variant="outline"
             disabled={job.state === "cancelling"}
             onClick={() => {
-              setAction("cancel");
               setConfirm({
                 title: "Stop this transcription?",
                 description: "The recording stays available for a retry.",
@@ -154,22 +155,9 @@ function JobProgress({
           Add another recording
         </Link>
         {!active && (
-          <div>
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => {
-                setAction("delete");
-                setConfirm({
-                  title: "Delete recording or transcript?",
-                  description: "This cannot be undone.",
-                  label: "Delete",
-                  danger: true,
-                });
-              }}
-            >
-              Delete recording or transcript
-            </Button>
+          <div className="progress-delete">
+            <span>Delete recording and transcript</span>
+            <DeleteButton className="model-delete" onConfirm={remove} />
           </div>
         )}
       </div>
@@ -195,7 +183,6 @@ function Editor({ initial }: { initial: Job }) {
   const [playing, setPlaying] = useState(false);
   const [playbackTime, setPlaybackTime] = useState(0);
   const [active, setActive] = useState<number>();
-  const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
   const [scope, setScope] = useState("all");
   const audio = useRef<HTMLAudioElement>(null);
   const timer = useRef<number | undefined>(undefined);
@@ -287,9 +274,7 @@ function Editor({ initial }: { initial: Job }) {
     });
   }
 
-  async function remove(accepted: boolean) {
-    setConfirm(null);
-    if (!accepted) return;
+  async function remove() {
     await save();
     try {
       await api(`/jobs/${initial.id}`, {
@@ -550,42 +535,20 @@ function Editor({ initial }: { initial: Job }) {
         )}
       </div>
       <div className="editor-foot">
-        <Button
-          variant="destructive"
+        <label htmlFor="delete-scope">Delete</label>
+        <NativeSelect
+          id="delete-scope"
           size="sm"
-          onClick={() =>
-            setConfirm({
-              title: "Delete transcription?",
-              description: `Choose what to remove for “${title}”.`,
-              label: "Delete selected items",
-              danger: true,
-              options: (
-                <RadioGroup
-                  id="dialog-options"
-                  defaultValue={scope}
-                  onValueChange={(value) => setScope(String(value))}
-                >
-                  <label>
-                    <RadioGroupItem value="transcript" />
-                    Delete transcript and playback audio; keep original
-                    recording
-                  </label>
-                  <label>
-                    <RadioGroupItem value="all" />
-                    Delete transcript, playback audio, and original recording
-                  </label>
-                </RadioGroup>
-              ),
-            })
-          }
+          value={scope}
+          onChange={(event) => setScope(event.target.value)}
         >
-          Delete…
-        </Button>
+          <NativeSelectOption value="transcript">
+            Transcript only
+          </NativeSelectOption>
+          <NativeSelectOption value="all">Everything</NativeSelectOption>
+        </NativeSelect>
+        <DeleteButton className="model-delete" onConfirm={remove} />
       </div>
-      <ConfirmDialog
-        request={confirm}
-        onClose={(accepted) => void remove(accepted)}
-      />
     </section>
   );
 }
