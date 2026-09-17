@@ -254,7 +254,7 @@ test("model download shows measured progress, survives reload, and verifies befo
     .locator('.model-row[data-model="base"]')
     .getByRole("button", { name: "Delete", exact: true })
     .click();
-  await page.getByRole("button", { name: "Delete model", exact: true }).click();
+  await page.getByRole("button", { name: "Confirm delete" }).click();
   await expect(page.locator('.model-row[data-model="base"]')).not.toContainText(
     "Installed",
   );

@@ -138,6 +138,16 @@ nav a.active {
   color: #304d3c;
   font-weight: 600;
 }
+.rare-nav a {
+  padding-left: 22px;
+}
+.rare-nav a.active {
+  background: transparent;
+}
+.rare-nav [data-slot="hook-sidebar-item"][data-active="true"] {
+  color: #304d3c;
+  font-weight: 600;
+}
 .count {
   margin-left: auto;
   font-size: 10px;
@@ -592,6 +602,11 @@ progress::-webkit-progress-value {
   gap: 7px;
   flex: none;
 }
+.model-delete {
+  margin: -7px;
+  transform: scale(0.72);
+  transform-origin: right center;
+}
 .model-preset {
   color: var(--studio-muted);
   font-size: 9px;
@@ -948,6 +963,16 @@ dialog p {
   nav a > span:first-child {
     font-size: 16px;
     width: auto;
+  }
+  .rare-nav > div {
+    flex-direction: row;
+    gap: 3px;
+  }
+  .rare-nav > div > span[aria-hidden="true"] {
+    display: none;
+  }
+  .rail .rare-nav a {
+    padding: 8px 5px;
   }
   .count {
     display: none;

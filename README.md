@@ -35,7 +35,7 @@ First installation requires internet access. After software and a model are inst
 - Local diagnostics, rotating content-free logs, storage reporting, and offline connection messages.
 - Loopback-only origin, host/origin checks, CSRF request headers, restrictive CSP, and signed Cloudflare Access JWT verification for the production hostname.
 - Self-hosted DM Sans and Newsreader, keyboard controls, reduced-motion support, and desktop/tablet/mobile layouts.
-- TanStack Start file-based routes, shadcn UI components, and restrained Motion transitions for state changes.
+- TanStack Start file-based routes, shadcn form primitives, Rare UI interactions, and restrained Motion transitions.
 
 ## Configuration
 
@@ -95,7 +95,7 @@ This optional model download is approximately 75 MB and connects to Hugging Face
 
 ## Architecture
 
-`src/` contains the TanStack Start SPA, file routes, shadcn components, and Motion interactions. `studio/app.py` exposes the same-origin JSON API and serves the compiled client. The build externalizes TanStack Start's bootstrap code so the strict CSP needs no inline-script exception. `store.py` manages SQLite and confined paths. `media.py` validates imports with FFprobe. `jobs.py` owns all job state transitions and runs one subprocess at a time. `engine.py` isolates FFmpeg and Whisper; cancellation kills the complete process group. `models.py` handles explicit downloads. `exports.py` normalizes subtitle cues. `security.py` verifies the request boundary.
+`src/` contains the TanStack Start SPA, file routes, shadcn form primitives, [Rare UI](https://www.rareui.com/) interactions, and Motion animation. `studio/app.py` exposes the same-origin JSON API and serves the compiled client. The build externalizes TanStack Start's bootstrap code so the strict CSP needs no inline-script exception. `store.py` manages SQLite and confined paths. `media.py` validates imports with FFprobe. `jobs.py` owns all job state transitions and runs one subprocess at a time. `engine.py` isolates FFmpeg and Whisper; cancellation kills the complete process group. `models.py` handles explicit downloads. `exports.py` normalizes subtitle cues. `security.py` verifies the request boundary.
 
 The server polls durable state; inference is independent of browser requests. Every SQLite connection enables foreign keys; write transactions protect edits and transcript creation. Schema version 1 uses `PRAGMA user_version`. A future schema change must add a migration before increasing it. Recordings stream to disk; the Whisper runtime may allocate normalized audio internally, so large-file memory acceptance still needs hardware-specific testing.
 

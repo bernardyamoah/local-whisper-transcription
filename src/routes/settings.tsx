@@ -1,8 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Badge } from "@/components/ui/badge";
+import { AnimatedCounter } from "@/components/ui/animated-counter";
 import { buttonVariants } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DeleteButton } from "@/components/ui/delete-button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
@@ -71,6 +73,18 @@ function SettingsPage() {
       notice((reason as Error).message, true);
     } finally {
       setPendingAction(null);
+    }
+  }
+
+  async function removeModel(model: Model) {
+    try {
+      await api(`/models/${encodeURIComponent(model.id)}`, {
+        method: "DELETE",
+        body: JSON.stringify({ confirm: true }),
+      });
+      await refreshEnvironment();
+    } catch (reason) {
+      notice((reason as Error).message, true);
     }
   }
 
@@ -199,8 +213,13 @@ function SettingsPage() {
             <div className="model-heading">
               <h2>Models</h2>
               <span className="count">
-                {environment.models.filter((item) => item.installed).length}{" "}
-                installed
+                <AnimatedCounter
+                  value={
+                    environment.models.filter((item) => item.installed).length
+                  }
+                  duration={0.35}
+                  suffix={<>&nbsp;installed</>}
+                />
               </span>
             </div>
             <label className="visually-hidden" htmlFor="model-search">
@@ -234,21 +253,7 @@ function SettingsPage() {
                           }),
                       )
                     }
-                    remove={() =>
-                      ask(
-                        {
-                          title: `Delete ${model.name}?`,
-                          description: `Removes ${bytes(model.size_bytes)} from this computer.`,
-                          label: "Delete model",
-                          danger: true,
-                        },
-                        () =>
-                          api(`/models/${encodeURIComponent(model.id)}`, {
-                            method: "DELETE",
-                            body: JSON.stringify({ confirm: true }),
-                          }),
-                      )
-                    }
+                    remove={() => void removeModel(model)}
                   />
                 ))
               ) : (
@@ -336,9 +341,7 @@ function ModelRow({
         {model.installed ? (
           <>
             <Badge variant="outline">Installed</Badge>
-            <Button variant="destructive" size="sm" onClick={remove}>
-              Delete
-            </Button>
+            <DeleteButton className="model-delete" onConfirm={remove} />
           </>
         ) : !model.downloading ? (
           <Button variant="outline" size="sm" onClick={install}>

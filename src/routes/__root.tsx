@@ -6,6 +6,7 @@ import {
   createRootRoute,
 } from "@tanstack/react-router";
 import type { ReactNode } from "react";
+import { HookSidebar } from "@/components/ui/hook-sidebar";
 import "../styles.css";
 import {
   LegacyHashRedirect,
@@ -37,17 +38,15 @@ function Root() {
           <img src="/static/mark.svg" alt="" width="38" height="38" />
           <span>whisper</span>
         </Link>
-        <nav aria-label="Main navigation">
-          <Link to="/" activeOptions={{ exact: true }}>
-            <span aria-hidden="true">＋</span> New transcription
-          </Link>
-          <Link to="/library">
-            <span aria-hidden="true">▤</span> Library
-          </Link>
-          <Link to="/settings">
-            <span aria-hidden="true">⚙</span> Settings
-          </Link>
-        </nav>
+        <HookSidebar
+          className="rare-nav"
+          aria-label="Main navigation"
+          items={[
+            { label: "New transcription", href: "/" },
+            { label: "Library", href: "/library" },
+            { label: "Settings", href: "/settings" },
+          ]}
+        />
       </aside>
       <div className="main-shell">
         <StudioProvider>
