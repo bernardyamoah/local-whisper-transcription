@@ -396,9 +396,16 @@ def create_app(root=None, worker=True, command=None):
 
     static = Path(__file__).parent / "static"
     app.mount("/static", StaticFiles(directory=static), name="static")
+    app.mount("/assets", StaticFiles(directory=static / "assets"), name="assets")
 
     @app.get("/")
     def index():
+        return FileResponse(static / "index.html")
+
+    @app.get("/library")
+    @app.get("/settings")
+    @app.get("/jobs/{identifier}")
+    def client_route(identifier: str | None = None):
         return FileResponse(static / "index.html")
 
     return app

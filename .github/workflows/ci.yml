@@ -19,6 +19,7 @@ jobs:
       - run: uv run ruff check studio tests && uv run ruff format --check studio tests
       - run: uv run pytest -q
       - run: npm ci && npx playwright install --with-deps chromium
+      - run: npm run typecheck && npm run build
       - run: npm run check:format
       - run: npm run test:e2e
       - uses: actions/upload-artifact@v4

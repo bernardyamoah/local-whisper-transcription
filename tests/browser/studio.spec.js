@@ -206,7 +206,7 @@ test("model download shows measured progress, survives reload, and verifies befo
       await route.fulfill({ json: state });
     }
   });
-  await page.goto("/#settings");
+  await page.goto("/settings");
   await page.getByPlaceholder("Search models").fill("base");
   await expect(page.locator(".model-row")).toHaveCount(2);
   await page.getByPlaceholder("Search models").fill("base.en");

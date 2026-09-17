@@ -21,6 +21,7 @@
   --blue: #426875;
   --danger: #a43f36;
   --line: #dedfd5;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --serif: "Studio Serif", Georgia, serif;
   --sans: "Studio Sans", sans-serif;
 }
@@ -271,8 +272,8 @@ h3 {
   min-height: 42px;
   font-weight: 500;
   transition:
-    background 0.15s,
-    transform 0.15s;
+    background 0.15s var(--ease-out),
+    transform 0.15s var(--ease-out);
 }
 .button:hover {
   background: #355440;
@@ -845,18 +846,6 @@ dialog p {
   clip-path: inset(50%);
   white-space: nowrap;
 }
-main > section {
-  animation: arrive 0.35s ease both;
-}
-@keyframes arrive {
-  from {
-    transform: translateY(5px);
-  }
-  to {
-    transform: none;
-  }
-}
-
 @media (min-width: 1500px) {
   .main-shell {
     padding: 0 70px;

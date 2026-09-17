@@ -20,7 +20,7 @@ uv run whisper-studio
 
 Open **http://127.0.0.1:8765**. Go to **Settings**, choose **Install**, and confirm a model download. Then return to **New transcription** and choose an audio or video recording. The application never downloads an inference model automatically.
 
-First installation requires internet access. After software and a model are installed, local transcription works offline. The normal application does not use Node.js; it serves bundled JavaScript, CSS, SVGs, and fonts directly.
+First installation requires internet access. After software and a model are installed, local transcription works offline. The installed application does not need Node.js; FastAPI serves the compiled client, CSS, SVGs, and fonts directly.
 
 ## Included
 
@@ -35,6 +35,7 @@ First installation requires internet access. After software and a model are inst
 - Local diagnostics, rotating content-free logs, storage reporting, and offline connection messages.
 - Loopback-only origin, host/origin checks, CSRF request headers, restrictive CSP, and signed Cloudflare Access JWT verification for the production hostname.
 - Self-hosted DM Sans and Newsreader, keyboard controls, reduced-motion support, and desktop/tablet/mobile layouts.
+- TanStack Start file-based routes, reusable React UI components, and restrained Motion transitions for dialogs and state changes.
 
 ## Configuration
 
@@ -64,6 +65,8 @@ uv run ruff check studio tests
 uv run ruff format --check studio tests
 uv run pytest -q
 npm ci
+npm run typecheck
+npm run build
 npx playwright install chromium
 npm run test:e2e
 ```
@@ -84,7 +87,7 @@ This optional model download is approximately 75 MB and connects to Hugging Face
 
 ## Architecture
 
-`studio/app.py` exposes a same-origin JSON API and bundled client. `store.py` manages SQLite and confined paths. `media.py` validates imports with FFprobe. `jobs.py` owns all job state transitions and runs one subprocess at a time. `engine.py` isolates FFmpeg and Whisper; cancellation kills the complete process group. `models.py` handles explicit downloads. `exports.py` normalizes subtitle cues. `security.py` verifies the request boundary.
+`src/` contains the TanStack Start SPA, file routes, React components, and Motion interactions. `studio/app.py` exposes the same-origin JSON API and serves the compiled client. `store.py` manages SQLite and confined paths. `media.py` validates imports with FFprobe. `jobs.py` owns all job state transitions and runs one subprocess at a time. `engine.py` isolates FFmpeg and Whisper; cancellation kills the complete process group. `models.py` handles explicit downloads. `exports.py` normalizes subtitle cues. `security.py` verifies the request boundary and permits only the generated inline bootstrap scripts by hash.
 
 The server polls durable state; inference is independent of browser requests. Every SQLite connection enables foreign keys; write transactions protect edits and transcript creation. Schema version 1 uses `PRAGMA user_version`. A future schema change must add a migration before increasing it. Recordings stream to disk; the Whisper runtime may allocate normalized audio internally, so large-file memory acceptance still needs hardware-specific testing.
 
