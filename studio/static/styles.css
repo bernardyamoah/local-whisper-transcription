@@ -1763,3 +1763,46 @@ nav {
     padding-inline: 4px;
   }
 }
+.editor-page .audio-seek,
+.volume-control input {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+}
+.editor-page .audio-seek::-webkit-slider-runnable-track,
+.volume-control input::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 10px;
+  background: #e7e8e2;
+}
+.editor-page .audio-seek::-moz-range-track,
+.volume-control input::-moz-range-track {
+  height: 4px;
+  border-radius: 10px;
+  background: #e7e8e2;
+}
+.editor-page .audio-seek::-webkit-slider-thumb,
+.volume-control input::-webkit-slider-thumb {
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -4px;
+  border-radius: 50%;
+  background: #c47558;
+  border: 2px solid white;
+  box-shadow: 0 0 0 1px #c47558;
+}
+.editor-page .audio-seek::-moz-range-thumb,
+.volume-control input::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #c47558;
+  border: 2px solid white;
+  box-shadow: 0 0 0 1px #c47558;
+}
+.editor-page input[type="range"]:focus-visible {
+  outline: 2px solid #914a35;
+  outline-offset: 4px;
+  border-radius: 8px;
+}

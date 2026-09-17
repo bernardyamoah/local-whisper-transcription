@@ -55,6 +55,16 @@ test("import, process, edit, reload, search, copy, export and delete", async ({
   });
   const audio = page.locator("audio");
   const transport = page.locator('[data-slot="step-player-control"]');
+  await expect(audio).not.toHaveAttribute("controls");
+  await page.getByRole("slider", { name: "Seek recording" }).fill("0.5");
+  await expect
+    .poll(() => audio.evaluate((element) => element.currentTime))
+    .toBeCloseTo(0.5, 1);
+  await page.getByRole("slider", { name: "Volume" }).fill("0.5");
+  await expect
+    .poll(() => audio.evaluate((element) => element.volume))
+    .toBe(0.5);
+  await page.getByRole("slider", { name: "Seek recording" }).fill("0");
   await transport.click();
   await expect
     .poll(() => audio.evaluate((element) => !element.paused))
