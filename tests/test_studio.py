@@ -148,6 +148,48 @@ def test_settings_validate(client):
     assert client.post("/api/models/fast", json={"confirm": False}).status_code == 422
 
 
+def test_model_catalog_and_delete_api(client, app):
+    environment = client.get("/api/environment").json()
+    models = {model["id"]: model for model in environment["models"]}
+    assert models["base"]["installed"]
+    assert "tiny.en" in models
+    assert client.post("/api/models/not-a-model", json={"confirm": True}).status_code == 404
+    response = client.request("DELETE", "/api/models/base", json={"confirm": True})
+    assert response.json() == {"deleted": True, "model": "base"}
+    assert not app.state.models.path("base").exists()
+    assert not client.get("/api/environment").json()["presets"]["fast"]["installed"]
+
+
+def test_installed_catalog_model_can_run_job(client, app, audio):
+    path = app.state.models.path("tiny.en")
+    path.mkdir()
+    for name in [".ready", "model.bin", "config.json", "tokenizer.json"]:
+        (path / name).write_text("model")
+    media = import_audio(client, audio)
+    response = client.post(
+        "/api/jobs",
+        json={"media_id": media["id"], "preset": "fast", "model": "tiny.en"},
+    )
+    assert response.status_code == 201
+    assert response.json()["model"] == "tiny.en"
+    assert wait_state(client, response.json()["id"])["state"] == "completed"
+
+
+def test_active_job_model_cannot_be_deleted(tmp_path, audio):
+    app = create_app(tmp_path, worker=False)
+    path = app.state.models.path("base")
+    path.mkdir()
+    for name in [".ready", "model.bin", "config.json", "tokenizer.json"]:
+        (path / name).write_text("model")
+    with TestClient(app, headers={"X-Studio-Request": "1"}) as client:
+        media = import_audio(client, audio)
+        created = client.post("/api/jobs", json={"media_id": media["id"], "preset": "fast"})
+        assert created.status_code == 201
+        response = client.request("DELETE", "/api/models/base", json={"confirm": True})
+        assert response.status_code == 409
+        assert path.exists()
+
+
 def test_edit_transaction_rolls_back(client, audio):
     job = wait_state(client, new_job(client, audio)["id"])
     edits = [{"id": job["segments"][0]["id"], "text": "Should roll back"}, {"id": 999999, "text": "Invalid"}]

@@ -25,7 +25,8 @@ First installation requires internet access. After software and a model are inst
 ## Included
 
 - Drag-and-drop uploads with streaming writes, checksums, actual container probing, duration limits, and upload progress.
-- Fast, Balanced, and Accurate presets, explicit model installation, percentage and byte-count download progress, language detection or manual selection.
+- Searchable model manager with explicit installation, deletion, measured download progress, and support for official faster-whisper variants.
+- Fast, Balanced, and Accurate presets, optional model override, and automatic or manual language selection.
 - One durable background worker; persistent queue, stage progress, elapsed time, cancellation, retry, and interrupted-job recovery.
 - Browser-compatible playback, timestamp seeking, segment following, volume and speed controls.
 - Debounced autosave, original generated text preservation, revision conflict protection, search, session undo, and copy.

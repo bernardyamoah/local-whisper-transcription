@@ -26,9 +26,10 @@ ACTIVE = {"preparing", "transcribing", "saving", "cancelling"}
 
 
 class Orchestrator:
-    def __init__(self, store, command=None):
+    def __init__(self, store, command=None, model_path=None):
         self.store = store
         self.command = command or [sys.executable, "-m", "studio.engine"]
+        self.model_path = model_path or (lambda model: self.store.path("models", model))
         self.lock = threading.RLock()
         self.stop = threading.Event()
         self.thread = None
@@ -148,7 +149,7 @@ class Orchestrator:
                     str(self.store.path("sources", job["media_id"])),
                     str(normalized),
                     str(playback),
-                    str(self.store.path("models", job["model"])),
+                    str(self.model_path(job["model"])),
                     job["language"],
                     self.store.settings()["hardware"],
                     str(output),

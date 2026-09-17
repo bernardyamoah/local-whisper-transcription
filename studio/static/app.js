@@ -39,6 +39,7 @@ let pending = new Map(),
 let historyOffset = 0,
   historyQuery = "",
   historySort = "newest",
+  modelQuery = "",
   editUndo = [];
 let matches = [],
   matchIndex = -1,
@@ -156,14 +157,27 @@ async function renderNew() {
         ([key, preset]) =>
           `<div class="quality"><input type="radio" name="quality" id="quality-${key}" value="${key}" ${settings.preset === key ? "checked" : ""}><label for="quality-${key}">${titleCase(key)}<small>${preset.memory} memory</small></label></div>`,
       )
-      .join("")}</div></div>
+      .join(
+        "",
+      )}</div></div><div class="field"><label for="model">Model</label><select id="model">${environment.models
+      .filter((model) => model.installed)
+      .map(
+        (model) =>
+          `<option value="${model.id}" ${model.id === environment.presets[settings.preset].model ? "selected" : ""}>${escape(model.name)}</option>`,
+      )
+      .join("")}</select></div>
     <div class="configuration-bottom"><p id="start-help" class="helper"></p>${button('Start transcription <span aria-hidden="true">↗</span>', "start", "", 'id="start-button" disabled')}</div></div></div>
     </div>
     <div class="recent"><div class="section-heading"><h2>Recent transcriptions</h2><a href="#library">Open library <span aria-hidden="true">↗</span></a></div><div id="recent-list"><p class="empty-inline">Loading…</p></div></div></section>`;
   renderDrop();
   $$("input[name=quality]").forEach((el) =>
-    el.addEventListener("change", updateStart),
+    el.addEventListener("change", () => {
+      const mapped = environment.presets[el.value].model;
+      if ($(`#model option[value="${mapped}"]`)) $("#model").value = mapped;
+      updateStart();
+    }),
   );
+  $("#model").addEventListener("change", updateStart);
   await refreshRecent();
 }
 function renderDrop() {
@@ -200,12 +214,12 @@ function renderDrop() {
 function updateStart() {
   const key = $("input[name=quality]:checked")?.value;
   if (!key) return;
-  const preset = environment.presets[key];
+  const model = $("#model").value;
   $("#start-button").disabled =
-    !imported || !preset.installed || !environment.ffmpeg || uploadBusy;
+    !imported || !model || !environment.ffmpeg || uploadBusy;
   $("#start-help").innerHTML = !environment.ffmpeg
     ? "Install FFmpeg to transcribe."
-    : !preset.installed
+    : !model
       ? `<a href="#settings">Install the ${key} model in Settings</a>`
       : imported
         ? ""
@@ -323,7 +337,7 @@ async function refreshLibrary() {
     : "";
 }
 function renderSettings() {
-  workspace.innerHTML = `<section>${heading("Settings")}<div class="settings-grid"><div><form id="settings-form" class="settings-section"><h2>Preferences</h2><div class="field"><label for="default-language">Default language</label><select id="default-language" name="language">${languages(settings.language)}</select></div><div class="field"><label for="default-preset">Default quality</label><select id="default-preset" name="preset">${["fast", "balanced", "accurate"].map((k) => `<option ${settings.preset === k ? "selected" : ""} value="${k}">${titleCase(k)}</option>`).join("")}</select></div><div class="field"><label for="duration-limit">Maximum recording length (hours)</label><input type="number" id="duration-limit" name="max_duration_hours" min="0.1" max="24" step="0.1" value="${settings.max_duration_hours}" required></div><div class="field"><label for="hardware">Hardware (next job)</label><select id="hardware" name="hardware">${["auto", "cpu", "cuda"].map((k) => `<option value="${k}" ${settings.hardware === k ? "selected" : ""}>${k === "auto" ? "Automatic" : k.toUpperCase()}</option>`).join("")}</select><p class="helper">Apple Silicon: CPU. NVIDIA: CUDA.</p></div><label class="toggle-row"><input type="checkbox" name="retain_source" ${settings.retain_source ? "checked" : ""}><span>Keep recordings after transcription<br><span class="muted">When off, audio is deleted after transcription.</span></span></label><button class="button" type="submit">Save preferences</button><span id="settings-saved" class="save-status" role="status"></span></form></div><div><div class="settings-section"><h2>Models</h2><div id="models-list"></div></div><details class="settings-section"><summary>Diagnostics</summary><div id="diagnostics"></div><a class="button secondary small" href="/api/diagnostics" download>Download diagnostics</a></details></div></div></section>`;
+  workspace.innerHTML = `<section>${heading("Settings")}<div class="settings-grid"><div><form id="settings-form" class="settings-section"><h2>Preferences</h2><div class="field"><label for="default-language">Default language</label><select id="default-language" name="language">${languages(settings.language)}</select></div><div class="field"><label for="default-preset">Default quality</label><select id="default-preset" name="preset">${["fast", "balanced", "accurate"].map((k) => `<option ${settings.preset === k ? "selected" : ""} value="${k}">${titleCase(k)}</option>`).join("")}</select></div><div class="field"><label for="duration-limit">Maximum recording length (hours)</label><input type="number" id="duration-limit" name="max_duration_hours" min="0.1" max="24" step="0.1" value="${settings.max_duration_hours}" required></div><div class="field"><label for="hardware">Hardware (next job)</label><select id="hardware" name="hardware">${["auto", "cpu", "cuda"].map((k) => `<option value="${k}" ${settings.hardware === k ? "selected" : ""}>${k === "auto" ? "Automatic" : k.toUpperCase()}</option>`).join("")}</select><p class="helper">Apple Silicon: CPU. NVIDIA: CUDA.</p></div><label class="toggle-row"><input type="checkbox" name="retain_source" ${settings.retain_source ? "checked" : ""}><span>Keep recordings after transcription<br><span class="muted">When off, audio is deleted after transcription.</span></span></label><button class="button" type="submit">Save preferences</button><span id="settings-saved" class="save-status" role="status"></span></form></div><div><div class="settings-section"><div class="model-heading"><h2>Models</h2><span id="model-count" class="count"></span></div><label class="visually-hidden" for="model-search">Search models</label><input id="model-search" type="search" placeholder="Search models" value="${escape(modelQuery)}"><div id="models-list"></div></div><details class="settings-section"><summary>Diagnostics</summary><div id="diagnostics"></div><a class="button secondary small" href="/api/diagnostics" download>Download diagnostics</a></details></div></div></section>`;
   $("#settings-form").addEventListener(
     "submit",
     safe(async (e) => {
@@ -342,24 +356,56 @@ function renderSettings() {
       $("#settings-saved").textContent = " Preferences saved";
     }),
   );
+  $("#model-search").addEventListener("input", () => {
+    modelQuery = $("#model-search").value;
+    renderModels();
+  });
   updateEnvironment();
+}
+function renderModels() {
+  if (!$("#models-list")) return;
+  const query = modelQuery.trim().toLocaleLowerCase();
+  const presetNames = Object.fromEntries(
+    Object.entries(environment.presets).map(([name, preset]) => [
+      preset.model,
+      titleCase(name),
+    ]),
+  );
+  const models = environment.models
+    .filter((model) =>
+      `${model.id} ${model.name}`.toLocaleLowerCase().includes(query),
+    )
+    .sort((a, b) => Number(b.installed) - Number(a.installed));
+  $("#model-count").textContent =
+    `${environment.models.filter((model) => model.installed).length} installed`;
+  $("#models-list").innerHTML = models.length
+    ? models
+        .map((p) => {
+          const label =
+            p.phase === "verifying"
+              ? "Verifying…"
+              : p.progress === null
+                ? "Connecting…"
+                : `${Math.floor(p.progress)}% · ${bytes(p.downloaded_bytes)} / ${bytes(p.total_bytes)}`;
+          const progress = p.downloading
+            ? `<small role="status">${label}</small><progress aria-label="${escape(p.name)} model download" max="100" ${p.progress === null ? "" : `value="${p.progress}"`}></progress>`
+            : "";
+          const preset = presetNames[p.id]
+            ? `<span class="model-preset">${presetNames[p.id]}</span>`
+            : "";
+          const actions = p.installed
+            ? `${preset}<span class="status">Installed</span>${button("Delete", "delete-model", "secondary small danger-text", `data-model="${p.id}"`)}`
+            : p.downloading
+              ? preset
+              : `${preset}${button(p.error ? "Retry" : "Install", "install", "secondary small", `data-model="${p.id}"`)}`;
+          return `<div class="model-row" data-model="${p.id}"><div><strong>${escape(p.name)}</strong><small>${escape(p.id)} · ${p.size_bytes ? bytes(p.size_bytes) : p.estimate}</small>${progress}${p.error ? `<small class="danger-text">${escape(p.error)}</small>` : ""}</div><div class="model-actions">${actions}</div></div>`;
+        })
+        .join("")
+    : '<p class="empty-inline">No matching models.</p>';
 }
 function updateEnvironment() {
   if (!$("#models-list")) return;
-  $("#models-list").innerHTML = Object.entries(environment.presets)
-    .map(([key, p]) => {
-      const label =
-        p.phase === "verifying"
-          ? "Verifying…"
-          : p.progress === null
-            ? "Connecting…"
-            : `${Math.floor(p.progress)}% · ${bytes(p.downloaded_bytes)} / ${bytes(p.total_bytes)}`;
-      const progress = p.downloading
-        ? `<small role="status">${label}</small><progress aria-label="${titleCase(key)} model download" max="100" ${p.progress === null ? "" : `value="${p.progress}"`}></progress>`
-        : "";
-      return `<div class="model-row"><div><strong>${titleCase(key)} <span class="muted">/ ${escape(p.model)}</span></strong><small>${p.memory} RAM · ~${p.download_mb} MB</small>${progress}${p.error ? `<small class="danger-text">${escape(p.error)}</small>` : ""}</div>${p.installed ? '<span class="status">Installed</span>' : p.downloading ? "" : button(p.error ? "Retry" : "Install", "install", "secondary small", `data-preset="${key}"`)}</div>`;
-    })
-    .join("");
+  renderModels();
   $("#diagnostics").innerHTML =
     `<dl><dt>Studio version</dt><dd>${environment.version}</dd><dt>FFmpeg</dt><dd>${environment.ffmpeg ? "Installed" : "Missing — install with brew install ffmpeg"}</dd><dt>Whisper runtime</dt><dd>faster-whisper ${environment.runtime}</dd><dt>Available backend</dt><dd>${environment.compute.toUpperCase()}</dd><dt>Database</dt><dd>${environment.database ? "Healthy" : "Needs attention"}</dd><dt>Studio storage</dt><dd>${bytes(environment.used_bytes)} · ${bytes(environment.free_bytes)} free</dd><dt>Data location</dt><dd>${escape(environment.data_location)}</dd><dt>Access boundary</dt><dd>${environment.access_verified ? "Verified Cloudflare identity" : "Local recovery connection"}</dd><dt>Tunnel</dt><dd>${escape(environment.tunnel)}</dd></dl>`;
 }
@@ -523,6 +569,7 @@ const actions = {
           title,
           language: $("#language").value,
           preset: selected,
+          model: $("#model").value,
         }),
       });
       imported = null;
@@ -536,17 +583,35 @@ const actions = {
     renderDrop();
   },
   async install(el) {
-    const preset = el.dataset.preset,
-      p = environment.presets[preset];
+    const model = el.dataset.model,
+      p = environment.models.find((item) => item.id === model);
     if (
       await confirmation(
-        `Download ${p.model}?`,
-        `Approximately ${p.download_mb} MB from Hugging Face. Internet required.`,
+        `Download ${p.name}?`,
+        `${p.estimate} from Hugging Face. Internet required.`,
         { label: "Download model" },
       )
     ) {
-      await api(`/models/${preset}`, {
+      await api(`/models/${encodeURIComponent(model)}`, {
         method: "POST",
+        body: JSON.stringify({ confirm: true }),
+      });
+      environment = await api("/environment");
+      updateEnvironment();
+    }
+  },
+  async "delete-model"(el) {
+    const model = el.dataset.model,
+      item = environment.models.find((entry) => entry.id === model);
+    if (
+      await confirmation(
+        `Delete ${item.name}?`,
+        `Removes ${bytes(item.size_bytes)} from this computer.`,
+        { danger: true, label: "Delete model" },
+      )
+    ) {
+      await api(`/models/${encodeURIComponent(model)}`, {
+        method: "DELETE",
         body: JSON.stringify({ confirm: true }),
       });
       environment = await api("/environment");

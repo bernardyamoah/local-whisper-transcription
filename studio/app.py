@@ -24,7 +24,7 @@ from studio import __version__
 from studio.exports import filename, render
 from studio.jobs import ACTIVE, Orchestrator
 from studio.media import MediaError, probe
-from studio.models import Models
+from studio.models import MODEL_INFO, Models
 from studio.security import Boundary
 from studio.store import Store, presets
 
@@ -51,11 +51,19 @@ class NewJob(BaseModel):
     title: str = Field(default="", max_length=200)
     language: str = "auto"
     preset: Literal["fast", "balanced", "accurate"] = "balanced"
+    model: str | None = None
 
     @field_validator("language")
     @classmethod
     def language_supported(cls, value):
         return Settings.language_supported(value)
+
+    @field_validator("model")
+    @classmethod
+    def model_supported(cls, value):
+        if value is not None and value not in MODEL_INFO:
+            raise ValueError("Unsupported model")
+        return value
 
 
 class SegmentEdit(BaseModel):
@@ -80,9 +88,10 @@ class Install(BaseModel):
 
 def create_app(root=None, worker=True, command=None):
     store = Store(root or os.getenv("STUDIO_DATA", "~/.local/share/whisper-studio"))
-    jobs, models, choices = Orchestrator(store, command), Models(store), presets()
+    models, choices = Models(store), presets()
+    jobs = Orchestrator(store, command, models.path)
     for preset in choices.values():
-        store.path("models", preset["model"])
+        models.path(preset["model"])
     handler = logging.handlers.RotatingFileHandler(
         store.root / "logs" / "studio.log", maxBytes=1_000_000, backupCount=3
     )
@@ -159,6 +168,7 @@ def create_app(root=None, worker=True, command=None):
             "data_location": str(store.root),
             "compute": "cuda" if ctranslate2.get_cuda_device_count() else "cpu",
             "presets": {k: v | models.status(v["model"]) for k, v in choices.items()},
+            "models": models.catalog(),
             "languages": list(_LANGUAGE_CODES),
             "access_verified": request.state.access_verified,
             "origin": "healthy",
@@ -184,11 +194,24 @@ def create_app(root=None, worker=True, command=None):
     def update_settings(payload: Settings):
         return store.update_settings(payload.model_dump())
 
-    @app.post("/api/models/{preset}")
-    def install(preset: str, payload: Install):
-        if preset not in choices:
-            raise HTTPException(404, "Unknown preset")
-        return models.install(choices[preset]["model"])
+    @app.post("/api/models/{model}")
+    def install(model: str, payload: Install):
+        if model not in MODEL_INFO:
+            raise HTTPException(404, "Unknown model")
+        return models.install(model)
+
+    @app.delete("/api/models/{model}")
+    def delete_model(model: str, payload: Install):
+        if model not in MODEL_INFO:
+            raise HTTPException(404, "Unknown model")
+        with jobs.lock, store.connect() as db:
+            active = db.execute(
+                "SELECT 1 FROM jobs WHERE model=? AND state IN ('queued','preparing','transcribing','saving','cancelling')",
+                (model,),
+            ).fetchone()
+            if active:
+                raise HTTPException(409, "This model is being used by an active transcription.")
+            return models.delete(model)
 
     @app.post("/api/media", status_code=201)
     async def upload(request: Request):
@@ -255,7 +278,7 @@ def create_app(root=None, worker=True, command=None):
 
     @app.post("/api/jobs", status_code=201)
     def create_job(payload: NewJob):
-        model = choices[payload.preset]["model"]
+        model = payload.model or choices[payload.preset]["model"]
         if not models.status(model)["installed"]:
             raise HTTPException(409, "Install this quality preset in Settings before starting.")
         if not shutil.which("ffmpeg"):

@@ -1,5 +1,6 @@
 import fnmatch
 import json
+import shutil
 import subprocess
 import sys
 import threading
@@ -8,6 +9,27 @@ from pathlib import Path
 
 REQUIRED = ("model.bin", "config.json", "tokenizer.json")
 PATTERNS = ("config.json", "preprocessor_config.json", "model.bin", "tokenizer.json", "vocabulary.*")
+MODEL_INFO = {
+    "tiny": ("Tiny", "~75 MB"),
+    "tiny.en": ("Tiny · English", "~75 MB"),
+    "base": ("Base", "~150 MB"),
+    "base.en": ("Base · English", "~150 MB"),
+    "small": ("Small", "~500 MB"),
+    "small.en": ("Small · English", "~500 MB"),
+    "medium": ("Medium", "~1.5 GB"),
+    "medium.en": ("Medium · English", "~1.5 GB"),
+    "large-v1": ("Large v1", "~3 GB"),
+    "large-v2": ("Large v2", "~3 GB"),
+    "large-v3": ("Large v3", "~3 GB"),
+    "large": ("Large", "~3 GB"),
+    "large-v3-turbo": ("Large v3 Turbo", "~1.6 GB"),
+    "turbo": ("Turbo", "~1.6 GB"),
+    "distil-small.en": ("Distil Small · English", "~350 MB"),
+    "distil-medium.en": ("Distil Medium · English", "~750 MB"),
+    "distil-large-v2": ("Distil Large v2 · English", "~1.5 GB"),
+    "distil-large-v3": ("Distil Large v3 · English", "~1.5 GB"),
+    "distil-large-v3.5": ("Distil Large v3.5 · English", "~1.5 GB"),
+}
 
 
 def write_progress(path, phase, downloaded=0, total=None):
@@ -22,8 +44,13 @@ class Models:
         self.processes = {}
         self.lock = threading.Lock()
 
+    def path(self, model):
+        if model not in MODEL_INFO:
+            raise ValueError("Unsupported model")
+        return self.store.path("models", model.replace(".", "-dot-"))
+
     def status(self, model):
-        path = self.store.path("models", model)
+        path = self.path(model)
         installed = (path / ".ready").exists() and all((path / f).is_file() for f in REQUIRED)
         process = self.processes.get(model)
         running = process is not None and process.poll() is None
@@ -48,14 +75,23 @@ class Models:
             "total_bytes": total,
             "progress": 100 if installed else round(downloaded / total * 100, 1) if total else None,
             "error": error,
+            "size_bytes": sum(file.stat().st_size for file in path.rglob("*") if file.is_file())
+            if path.exists()
+            else 0,
         }
+
+    def catalog(self):
+        return [
+            {"id": model, "name": name, "estimate": estimate} | self.status(model)
+            for model, (name, estimate) in MODEL_INFO.items()
+        ]
 
     def install(self, model):
         with self.lock:
             status = self.status(model)
             if status["installed"] or status["downloading"]:
                 return status
-            path = self.store.path("models", model)
+            path = self.path(model)
             path.mkdir(parents=True, exist_ok=True)
             write_progress(path, "connecting")
             self.processes[model] = subprocess.Popen(
@@ -65,6 +101,18 @@ class Models:
                 start_new_session=True,
             )
             return self.status(model)
+
+    def delete(self, model):
+        with self.lock:
+            status = self.status(model)
+            if status["downloading"]:
+                raise ValueError("Wait for the download to finish before deleting this model.")
+            path = self.path(model)
+            if not path.exists():
+                raise KeyError(model)
+            shutil.rmtree(path)
+            self.processes.pop(model, None)
+            return {"deleted": True, "model": model}
 
     def close(self):
         from studio.jobs import Orchestrator

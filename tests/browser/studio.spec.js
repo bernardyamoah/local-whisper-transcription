@@ -185,25 +185,41 @@ test("model download shows measured progress, survives reload, and verifies befo
     const response = await route.fetch();
     const body = await response.json();
     body.presets.fast = { ...body.presets.fast, ...state };
+    body.models = body.models.map((model) =>
+      model.id === "base" ? { ...model, ...state } : model,
+    );
     await route.fulfill({ json: body });
   });
-  await page.route("**/api/models/fast", async (route) => {
-    state = {
-      ...state,
-      downloading: true,
-      phase: "downloading",
-      progress: 25,
-      total_bytes: 100000000,
-      downloaded_bytes: 25000000,
-    };
-    await route.fulfill({ json: state });
+  await page.route("**/api/models/base", async (route) => {
+    if (route.request().method() === "DELETE") {
+      state = { ...state, phase: "available", installed: false };
+      await route.fulfill({ json: { deleted: true, model: "base" } });
+    } else {
+      state = {
+        ...state,
+        downloading: true,
+        phase: "downloading",
+        progress: 25,
+        total_bytes: 100000000,
+        downloaded_bytes: 25000000,
+      };
+      await route.fulfill({ json: state });
+    }
   });
   await page.goto("/#settings");
-  await page.getByRole("button", { name: "Install", exact: true }).click();
+  await page.getByPlaceholder("Search models").fill("base");
+  await expect(page.locator(".model-row")).toHaveCount(2);
+  await page.getByPlaceholder("Search models").fill("base.en");
+  await expect(page.locator(".model-row")).toHaveCount(1);
+  await page.getByPlaceholder("Search models").fill("base");
+  await page
+    .locator('.model-row[data-model="base"]')
+    .getByRole("button", { name: "Install", exact: true })
+    .click();
   await page
     .getByRole("button", { name: "Download model", exact: true })
     .click();
-  const bar = page.getByRole("progressbar", { name: "Fast model download" });
+  const bar = page.getByRole("progressbar", { name: "Base model download" });
   await expect(bar).toHaveAttribute("value", "25");
   await expect(
     page.getByRole("status").filter({ hasText: "25%" }),
@@ -225,4 +241,12 @@ test("model download shows measured progress, survives reload, and verifies befo
   state = { ...state, phase: "ready", downloading: false, installed: true };
   await expect(bar).toHaveCount(0, { timeout: 6000 });
   await expect(page.locator(".model-row").first()).toContainText("Installed");
+  await page
+    .locator('.model-row[data-model="base"]')
+    .getByRole("button", { name: "Delete", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Delete model", exact: true }).click();
+  await expect(page.locator('.model-row[data-model="base"]')).not.toContainText(
+    "Installed",
+  );
 });

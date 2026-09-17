@@ -75,3 +75,21 @@ def test_connecting_is_indeterminate(tmp_path):
     assert state["phase"] == "connecting"
     assert state["progress"] is None
     assert state["downloading"]
+
+
+def test_catalog_and_delete(tmp_path):
+    models = Models(Store(tmp_path))
+    path = models.path("base.en")
+    path.mkdir()
+    for name in [".ready", "model.bin", "config.json", "tokenizer.json"]:
+        (path / name).write_text("model")
+    catalog = {item["id"]: item for item in models.catalog()}
+    assert catalog["base.en"]["installed"]
+    assert catalog["base.en"]["size_bytes"] > 0
+    assert "large-v3-turbo" in catalog
+    assert models.delete("base.en") == {"deleted": True, "model": "base.en"}
+    assert not path.exists()
+    with pytest.raises(KeyError):
+        models.delete("base.en")
+    with pytest.raises(ValueError):
+        models.status("unknown")
