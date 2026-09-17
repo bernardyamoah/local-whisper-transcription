@@ -1,3 +1,4 @@
+import MatrixOrb from "@/components/ui/matrix-orb";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowUpRight01Icon, FileAudioIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -156,21 +157,13 @@ function NewTranscription() {
               uploadFile(event.dataTransfer.files[0]);
             }}
           >
-            <div className="capture-wave" aria-hidden="true">
-              {Array.from({ length: 41 }, (_, i) => (
-                <span
-                  key={i}
-                  style={{
-                    height:
-                      12 +
-                      Math.pow(Math.sin(i * 0.19), 2) *
-                        (1 - Math.abs(i - 20) / 26) *
-                        140 +
-                      "px",
-                    animationDelay: i * -0.09 + "s",
-                  }}
-                />
-              ))}
+            <div className="capture-orb" aria-hidden="true">
+              <MatrixOrb
+                state={busy ? "thinking" : dragging ? "listening" : "idle"}
+                size={220}
+                color="#d87e5f"
+                labels={{ idle: "", listening: "", thinking: "" }}
+              />
             </div>
             {media ? (
               <motion.div

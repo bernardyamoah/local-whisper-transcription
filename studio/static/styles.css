@@ -1591,6 +1591,24 @@ nav {
   max-width: 1120px;
   margin-inline: auto;
 }
+.editor-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 18px;
+  color: var(--studio-muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.editor-back:hover {
+  color: var(--green);
+}
+.editor-back:focus-visible {
+  border-radius: 6px;
+  outline: 2px solid var(--green);
+  outline-offset: 4px;
+}
 .editor-page .editor-header input {
   font-family: var(--sans);
   font-size: clamp(23px, 2.6vw, 36px);
@@ -1805,4 +1823,23 @@ nav {
   outline: 2px solid #914a35;
   outline-offset: 4px;
   border-radius: 8px;
+}
+.capture-orb {
+  display: grid;
+  place-items: center;
+  margin: 10px 0 0;
+  pointer-events: none;
+}
+.processing-orb {
+  display: grid;
+  place-items: center;
+  margin: 14px 0 0;
+}
+.playback-orb {
+  flex-shrink: 0;
+}
+@media (max-width: 620px) {
+  .playback-orb {
+    display: none;
+  }
 }

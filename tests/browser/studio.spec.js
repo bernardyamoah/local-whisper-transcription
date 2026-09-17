@@ -55,6 +55,9 @@ test("import, process, edit, reload, search, copy, export and delete", async ({
   });
   const audio = page.locator("audio");
   const transport = page.locator('[data-slot="step-player-control"]');
+  await expect(
+    page.getByRole("link", { name: "Back to library" }),
+  ).toHaveAttribute("href", "/library");
   await expect(audio).not.toHaveAttribute("controls");
   await page.getByRole("slider", { name: "Seek recording" }).fill("0.5");
   await expect
@@ -211,7 +214,7 @@ test("keyboard import, cancellation, retry, undo, and navigation saves", async (
   await expect(text).toHaveValue("Every voice has a story.");
   await text.fill("Saved on the way out.");
   const route = page.url();
-  await page.getByRole("link", { name: "Library" }).click();
+  await page.getByRole("link", { name: "Library", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Library" })).toBeVisible();
   await page.goto(route);
   await expect(text).toHaveValue("Saved on the way out.");
@@ -315,10 +318,10 @@ test("drop recording anywhere on stage and replace it", async ({ page }) => {
   await stage.dispatchEvent("dragenter", { dataTransfer: transfer });
   await expect(stage).toHaveAttribute("data-dragging", "true");
   await page
-    .locator(".capture-wave")
+    .locator(".capture-orb")
     .dispatchEvent("dragenter", { dataTransfer: transfer });
   await page
-    .locator(".capture-wave")
+    .locator(".capture-orb")
     .dispatchEvent("dragleave", { dataTransfer: transfer });
   await expect(stage).toHaveAttribute("data-dragging", "true");
   await stage.dispatchEvent("dragleave", { dataTransfer: transfer });

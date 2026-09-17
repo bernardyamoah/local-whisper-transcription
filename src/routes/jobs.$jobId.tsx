@@ -1,6 +1,8 @@
+import MatrixOrb from "@/components/ui/matrix-orb";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
   ArrowDown02Icon,
+  ArrowLeft02Icon,
   ArrowUp02Icon,
   ArrowUpRight01Icon,
   Download02Icon,
@@ -110,21 +112,13 @@ function JobProgress({
             </span>
             <span>{job.backend?.toUpperCase() || "LOCAL"}</span>
           </div>
-          <div className="processing-wave" aria-hidden="true">
-            {Array.from({ length: 53 }, (_, i) => (
-              <span
-                key={i}
-                style={{
-                  height:
-                    10 +
-                    Math.pow(Math.sin(i * 0.22), 2) *
-                      (1 - Math.abs(i - 26) / 32) *
-                      120 +
-                    "px",
-                  animationDelay: i * -0.075 + "s",
-                }}
-              />
-            ))}
+          <div className="processing-orb" aria-hidden="true">
+            <MatrixOrb
+              state={active && job.state !== "cancelling" ? "thinking" : "idle"}
+              size={200}
+              color="#d87e5f"
+              labels={{ idle: "", thinking: "" }}
+            />
           </div>
           <div className="processing-percentage" aria-hidden="true">
             {Math.round(job.progress)}
@@ -363,6 +357,10 @@ function Editor({ initial }: { initial: Job }) {
   return (
     <section className="editor-page">
       <h1 className="visually-hidden">Transcript editor</h1>
+      <Link className="editor-back" to="/library">
+        <HugeiconsIcon icon={ArrowLeft02Icon} size={16} strokeWidth={1.8} />
+        Back to library
+      </Link>
       <div className="page-heading">
         <div className="editor-header">
           <label className="visually-hidden" htmlFor="transcript-title">
@@ -490,6 +488,14 @@ function Editor({ initial }: { initial: Job }) {
         {initial.playback_available ? (
           <>
             <div className="player-transport">
+              <div className="playback-orb" aria-hidden="true">
+                <MatrixOrb
+                  state={playing ? "listening" : "idle"}
+                  size={64}
+                  color="#d87e5f"
+                  labels={{ idle: "", listening: "" }}
+                />
+              </div>
               <StepPlayer
                 className="rare-audio-player"
                 steps={playerSegments.map((segment) => ({
