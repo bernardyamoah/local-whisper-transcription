@@ -3,7 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite dev",
+    "dev": "node scripts/dev.mjs",
+    "dev:frontend": "vite dev",
+    "dev:backend": "uv run whisper-studio",
     "build": "vite build && node scripts/sync-client.mjs",
     "typecheck": "tsc --noEmit",
     "test:e2e": "playwright test",

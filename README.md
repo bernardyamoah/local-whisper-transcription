@@ -73,6 +73,14 @@ npm run test:e2e
 
 Backend and browser suites use real SQLite and FFmpeg with a deterministic subprocess engine. The fake engine exists only in the test launcher; there is no production configuration switch that can enable it. Browser tests cover import → processing → edits → reload → copy → exports → deletion, responsive layout, and automated accessibility checks.
 
+For frontend development, one command starts the Python backend and Vite together:
+
+```sh
+npm run dev
+```
+
+Use `npm run dev:frontend` or `npm run dev:backend` when you need to run either service separately.
+
 For an optional real-engine test, explicitly download a small model and provide a short speech fixture:
 
 ```sh

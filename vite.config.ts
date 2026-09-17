@@ -3,14 +3,16 @@ import tailwindcss from "@tailwindcss/vite";
 import viteReact from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
+const backend = `http://127.0.0.1:${process.env.STUDIO_PORT || "8765"}`;
+
 export default defineConfig({
   base: "/",
   resolve: { tsconfigPaths: true },
   server: {
     port: 3000,
     proxy: {
-      "/api": "http://127.0.0.1:8765",
-      "/static": "http://127.0.0.1:8765",
+      "/api": backend,
+      "/static": backend,
     },
   },
   plugins: [
