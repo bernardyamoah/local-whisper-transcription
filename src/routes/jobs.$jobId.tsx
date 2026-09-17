@@ -1,4 +1,11 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import {
+  ArrowDown02Icon,
+  ArrowUp02Icon,
+  ArrowUpRight01Icon,
+  Download02Icon,
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buttonVariants } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -148,7 +155,12 @@ function JobProgress({
               }
             }}
           >
-            Try again ↗
+            Try again
+            <HugeiconsIcon
+              icon={ArrowUpRight01Icon}
+              size={15}
+              strokeWidth={1.8}
+            />
           </Button>
         )}{" "}
         <Link className={buttonVariants({ variant: "outline" })} to="/">
@@ -357,7 +369,7 @@ function Editor({ initial }: { initial: Job }) {
             )
           }
         >
-          ↑
+          <HugeiconsIcon icon={ArrowUp02Icon} size={15} strokeWidth={1.8} />
         </Button>
         <Button
           variant="outline"
@@ -369,7 +381,7 @@ function Editor({ initial }: { initial: Job }) {
             )
           }
         >
-          ↓
+          <HugeiconsIcon icon={ArrowDown02Icon} size={15} strokeWidth={1.8} />
         </Button>
         <span id="match-count" className="helper" aria-live="polite">
           {query
@@ -420,7 +432,8 @@ function Editor({ initial }: { initial: Job }) {
             link.click();
           }}
         >
-          Export ↓
+          Export
+          <HugeiconsIcon icon={Download02Icon} size={15} strokeWidth={1.8} />
         </Button>
       </div>
       <div className="player">
@@ -482,7 +495,7 @@ function Editor({ initial }: { initial: Job }) {
             >
               {[0.75, 1, 1.25, 1.5, 2].map((value) => (
                 <NativeSelectOption key={value} value={value}>
-                  {value}×
+                  {value}x
                 </NativeSelectOption>
               ))}
             </NativeSelect>

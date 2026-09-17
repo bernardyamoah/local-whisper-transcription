@@ -1,4 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { ArrowUpRight01Icon, FileAudioIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { motion, useReducedMotion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
@@ -181,7 +183,11 @@ function NewTranscription() {
                 transition={{ duration: 0.18 }}
               >
                 <span className="file-icon" aria-hidden="true">
-                  ≋
+                  <HugeiconsIcon
+                    icon={FileAudioIcon}
+                    size={20}
+                    strokeWidth={1.7}
+                  />
                 </span>
                 <label htmlFor="recording-title">Title</label>
                 <Input
@@ -302,7 +308,12 @@ function NewTranscription() {
                 )}
               </p>
               <Button id="start-button" disabled={!canStart} onClick={start}>
-                Start transcription ↗
+                Start transcription
+                <HugeiconsIcon
+                  icon={ArrowUpRight01Icon}
+                  size={16}
+                  strokeWidth={1.8}
+                />
               </Button>
             </div>
           </div>
@@ -312,7 +323,14 @@ function NewTranscription() {
         <div className="recent">
           <div className="section-heading">
             <h2>Recent transcriptions</h2>
-            <Link to="/library">Open library ↗</Link>
+            <Link to="/library">
+              Open library
+              <HugeiconsIcon
+                icon={ArrowUpRight01Icon}
+                size={14}
+                strokeWidth={1.8}
+              />
+            </Link>
           </div>
           {recent.length ? (
             recent.map((item) => <HistoryRow job={item} key={item.id} />)

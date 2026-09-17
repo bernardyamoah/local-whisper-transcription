@@ -1,4 +1,6 @@
 import { Link } from "@tanstack/react-router";
+import { ArrowUpRight01Icon, FileAudioIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { motion, useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
 import {
@@ -73,7 +75,7 @@ export function HistoryRow({ job }: { job: Job }) {
   return (
     <Link className="history-row" to="/jobs/$jobId" params={{ jobId: job.id }}>
       <span className="file-icon" aria-hidden="true">
-        ≋
+        <HugeiconsIcon icon={FileAudioIcon} size={18} strokeWidth={1.7} />
       </span>
       <span className="history-copy">
         <strong>{job.title}</strong>
@@ -85,7 +87,12 @@ export function HistoryRow({ job }: { job: Job }) {
         </small>
       </span>
       <StatusBadge state={job.state} />
-      <span aria-hidden="true">↗</span>
+      <HugeiconsIcon
+        icon={ArrowUpRight01Icon}
+        size={15}
+        strokeWidth={1.7}
+        aria-hidden="true"
+      />
     </Link>
   );
 }

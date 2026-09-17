@@ -1,4 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import {
+  Add01Icon,
+  ArrowLeft02Icon,
+  ArrowRight02Icon,
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { useCallback, useEffect, useState } from "react";
 import { buttonVariants } from "@/components/ui/button";
 import { DeleteButton } from "@/components/ui/delete-button";
@@ -63,7 +69,8 @@ function Library() {
         title="Library"
         action={
           <Link className={buttonVariants()} to="/">
-            New transcription ＋
+            New transcription
+            <HugeiconsIcon icon={Add01Icon} size={16} strokeWidth={1.8} />
           </Link>
         }
       />
@@ -106,7 +113,8 @@ function Library() {
           title={query ? "No results" : "No transcriptions yet"}
           action={
             <Link className={buttonVariants()} to="/">
-              New transcription ＋
+              New transcription
+              <HugeiconsIcon icon={Add01Icon} size={16} strokeWidth={1.8} />
             </Link>
           }
         />
@@ -119,7 +127,8 @@ function Library() {
             disabled={!offset}
             onClick={() => setOffset(Math.max(0, offset - 50))}
           >
-            ← Previous
+            <HugeiconsIcon icon={ArrowLeft02Icon} size={15} strokeWidth={1.8} />
+            Previous
           </Button>
           <span>
             {offset + 1}–{Math.min(offset + 50, total)} of {total}
@@ -130,7 +139,12 @@ function Library() {
             disabled={offset + 50 >= total}
             onClick={() => setOffset(offset + 50)}
           >
-            Next →
+            Next
+            <HugeiconsIcon
+              icon={ArrowRight02Icon}
+              size={15}
+              strokeWidth={1.8}
+            />
           </Button>
         </div>
       )}
