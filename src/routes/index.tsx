@@ -16,6 +16,11 @@ import {
   ProgressBar,
 } from "../components/ui";
 import { api, bytes, time, titleCase } from "../lib/api";
+import { isRecommendedModel } from "../lib/models";
+import {
+  prepareSystemNotifications,
+  trackTranscription,
+} from "../lib/system-notifications";
 import type { Job, Media } from "../lib/types";
 
 export const Route = createFileRoute("/")({ component: NewTranscription });
@@ -27,9 +32,15 @@ function NewTranscription() {
   const [title, setTitle] = useState("");
   const [language, setLanguage] = useState(settings.language);
   const [quality, setQuality] = useState(settings.preset);
-  const [model, setModel] = useState(
-    environment.presets[settings.preset].model,
-  );
+  const [model, setModel] = useState(() => {
+    const preferred = environment.presets[settings.preset].model;
+    return environment.models.some(
+      (item) =>
+        item.id === preferred && item.installed && isRecommendedModel(item.id),
+    )
+      ? preferred
+      : "";
+  });
   const [upload, setUpload] = useState<number | null>(null);
   const [uploadStatus, setUploadStatus] = useState("");
   const [recent, setRecent] = useState<Job[]>([]);
@@ -56,8 +67,15 @@ function NewTranscription() {
       .catch((reason: Error) => notice(reason.message, true));
   }, [notice]);
 
-  const installed = environment.models.filter((item) => item.installed);
-  const canStart = !!media && !!model && !!environment.ffmpeg && !busy;
+  const installed = environment.models.filter(
+    (item) => item.installed && isRecommendedModel(item.id),
+  );
+  const canStart =
+    !!media &&
+    !!model &&
+    installed.some((item) => item.id === model) &&
+    !!environment.ffmpeg &&
+    !busy;
 
   function chooseQuality(value: string) {
     setQuality(value as typeof quality);
@@ -107,6 +125,7 @@ function NewTranscription() {
   async function start() {
     if (!media) return;
     setBusy(true);
+    void prepareSystemNotifications();
     try {
       const created = await api<Job>("/jobs", {
         method: "POST",
@@ -118,6 +137,7 @@ function NewTranscription() {
           model,
         }),
       });
+      trackTranscription(created);
       await navigate({ to: "/jobs/$jobId", params: { jobId: created.id } });
     } catch (reason) {
       notice((reason as Error).message, true);

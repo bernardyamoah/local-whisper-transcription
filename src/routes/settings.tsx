@@ -17,6 +17,11 @@ import {
   type ConfirmRequest,
 } from "../components/ui";
 import { api, bytes, titleCase } from "../lib/api";
+import { isRecommendedModel, RECOMMENDED_MODEL_IDS } from "../lib/models";
+import {
+  prepareSystemNotifications,
+  trackModelDownload,
+} from "../lib/system-notifications";
 import type { Model, Settings } from "../lib/types";
 
 export const Route = createFileRoute("/settings")({ component: SettingsPage });
@@ -34,11 +39,6 @@ function SettingsPage() {
     () => new Intl.DisplayNames(["en"], { type: "language" }),
     [],
   );
-
-  useEffect(() => {
-    const timer = window.setInterval(() => void refreshEnvironment(), 3000);
-    return () => window.clearInterval(timer);
-  }, [refreshEnvironment]);
 
   async function save(event: FormEvent) {
     event.preventDefault();
@@ -91,12 +91,24 @@ function SettingsPage() {
     ]),
   );
   const models = environment.models
+    .filter((item) => isRecommendedModel(item.id) || item.installed)
     .filter((item) =>
       `${item.id} ${item.name}`
         .toLowerCase()
         .includes(query.trim().toLowerCase()),
     )
-    .sort((a, b) => Number(b.installed) - Number(a.installed));
+    .sort((a, b) => {
+      const installed = Number(b.installed) - Number(a.installed);
+      if (installed) return installed;
+      return (
+        RECOMMENDED_MODEL_IDS.indexOf(
+          a.id as (typeof RECOMMENDED_MODEL_IDS)[number],
+        ) -
+        RECOMMENDED_MODEL_IDS.indexOf(
+          b.id as (typeof RECOMMENDED_MODEL_IDS)[number],
+        )
+      );
+    });
 
   return (
     <section>
@@ -223,20 +235,23 @@ function SettingsPage() {
                     key={model.id}
                     model={model}
                     preset={presets[model.id]}
-                    install={() =>
+                    install={() => {
+                      void prepareSystemNotifications();
                       ask(
                         {
                           title: `Download ${model.name}?`,
                           description: `${model.estimate} from Hugging Face.`,
                           label: "Download model",
                         },
-                        () =>
-                          api(`/models/${encodeURIComponent(model.id)}`, {
+                        async () => {
+                          await api(`/models/${encodeURIComponent(model.id)}`, {
                             method: "POST",
                             body: JSON.stringify({ confirm: true }),
-                          }),
-                      )
-                    }
+                          });
+                          trackModelDownload(model);
+                        },
+                      );
+                    }}
                     remove={() => void removeModel(model)}
                   />
                 ))
