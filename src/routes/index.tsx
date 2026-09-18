@@ -64,10 +64,18 @@ function NewTranscription() {
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [animateOptions, setAnimateOptions] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [expandedRecording, setExpandedRecording] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [recording, setRecording] = useState<RecordingStatus>({
     state: "idle",
   });
+  const liveFeed = useRef<HTMLDivElement>(null);
+  const followLive = useRef(true);
+  const [followingLive, setFollowingLive] = useState(true);
+  useEffect(() => {
+    const feed = liveFeed.current;
+    if (feed && followLive.current) feed.scrollTop = feed.scrollHeight;
+  }, [recording.live_transcript]);
   const [recordingBookmarks, setRecordingBookmarks] = useState<Bookmark[]>([]);
   const reduced = useReducedMotion();
   const input = useRef<HTMLInputElement>(null);
@@ -194,6 +202,7 @@ function NewTranscription() {
   async function startRecording() {
     setBusy(true);
     notice("");
+    void prepareSystemNotifications();
     try {
       const value = await api<RecordingStatus>("/recordings", {
         method: "POST",
@@ -204,6 +213,8 @@ function NewTranscription() {
         }),
       });
       setRecordingBookmarks([]);
+      followLive.current = true;
+      setFollowingLive(true);
       setRecording(value);
     } catch (reason) {
       notice((reason as Error).message, true);
@@ -227,11 +238,15 @@ function NewTranscription() {
   async function stopRecording() {
     setBusy(true);
     try {
-      const value = await api<Media>("/recordings/stop", { method: "POST" });
-      setMedia(value);
-      setTitle(value.name.replace(/\.[^.]+$/, ""));
+      const value = await api<Job>("/recordings/stop", { method: "POST" });
       setRecording({ state: "idle" });
-      notice({ title: "Recording ready" });
+      trackTranscription(value);
+      notice({
+        title: "Meeting saved",
+        description: "The live transcript is ready to review.",
+        kind: "success",
+      });
+      await navigate({ to: "/jobs/$jobId", params: { jobId: value.id } });
     } catch (reason) {
       notice((reason as Error).message, true);
     } finally {
@@ -274,9 +289,16 @@ function NewTranscription() {
 
   if (needsSetup) return <p className="loading">Opening setup…</p>;
   return (
-    <section className="capture-page">
+    <section
+      className="capture-page"
+      data-session={recording.state === "recording"}
+    >
       <PageHeader
-        title="New transcription"
+        title={
+          recording.state === "recording"
+            ? "Meeting recording"
+            : "New transcription"
+        }
         action={
           <Link to="/library" className="capture-library-link">
             Library <HugeiconsIcon icon={ArrowUpRight01Icon} size={15} />
@@ -319,113 +341,188 @@ function NewTranscription() {
               uploadFile(event.dataTransfer.files[0]);
             }}
           >
-            <motion.div
-              className="capture-orb"
-              aria-hidden="true"
-              animate={{ scale: dragging ? 1.08 : 1, y: media ? -8 : 0 }}
-              transition={{ duration: reduced ? 0 : 0.3, ease: "easeOut" }}
-            >
-              <MatrixOrb
-                state={
-                  recording.state === "recording"
-                    ? "listening"
-                    : busy
-                      ? "thinking"
-                      : dragging
-                        ? "listening"
-                        : "idle"
-                }
-                size={220}
-                color="#d87e5f"
-                labels={{ idle: "", listening: "", thinking: "" }}
-              />
-            </motion.div>
+            {(recording.state !== "recording" || !expandedRecording) && (
+              <motion.div
+                className="capture-orb"
+                layout
+                aria-hidden="true"
+                animate={{ scale: dragging ? 1.08 : 1, y: media ? -8 : 0 }}
+                transition={{ duration: reduced ? 0 : 0.3, ease: "easeOut" }}
+              >
+                <MatrixOrb
+                  state={
+                    recording.state === "recording"
+                      ? "listening"
+                      : busy
+                        ? "thinking"
+                        : dragging
+                          ? "listening"
+                          : "idle"
+                  }
+                  size={220}
+                  color="#d87e5f"
+                  labels={{ idle: "", listening: "", thinking: "" }}
+                />
+              </motion.div>
+            )}
             <AnimatePresence mode="wait" initial={false}>
               {recording.state === "recording" ? (
                 <motion.div
                   key="recording"
                   className="recording-session"
+                  data-expanded={expandedRecording}
+                  layout
                   initial={{ opacity: 0, y: reduced ? 0 : 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: reduced ? 0 : -8 }}
                   transition={{ duration: reduced ? 0 : 0.2 }}
                 >
-                  <span className="recording-live">
-                    <span aria-hidden="true" /> Recording
-                  </span>
-                  <strong>{time(recording.elapsed)}</strong>
+                  <div className="session-toolbar">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="session-expand"
+                      aria-expanded={expandedRecording}
+                      onClick={() => setExpandedRecording(!expandedRecording)}
+                    >
+                      {expandedRecording ? "Compact view" : "Expand transcript"}
+                    </Button>
+                    <div className="session-identity">
+                      <span className="session-microphone" aria-hidden="true">
+                        <HugeiconsIcon
+                          icon={Mic01Icon}
+                          size={19}
+                          strokeWidth={1.7}
+                        />
+                      </span>
+                      <div>
+                        <span className="recording-live">
+                          <span aria-hidden="true" /> Recording
+                        </span>
+                        <span className="session-template">
+                          {environment.meeting_templates.find(
+                            (item) => item.id === meetingTemplate,
+                          )?.name || "Meeting"}
+                        </span>
+                      </div>
+                    </div>
+                    <strong className="session-timer">
+                      {time(recording.elapsed)}
+                    </strong>
+                  </div>
                   <div className="live-transcript" aria-live="polite">
                     <div className="live-transcript-heading">
                       <span>Live transcript</span>
                       <small>
-                        {recording.live_transcript?.length
-                          ? "Listening"
-                          : "Waiting for speech"}
+                        {environment.jev.enabled
+                          ? "Smart Moments on"
+                          : recording.live_transcript?.length
+                            ? "Listening"
+                            : "Waiting for speech"}
                       </small>
                     </div>
-                    <div className="live-transcript-feed">
+                    <div
+                      className="live-transcript-feed"
+                      data-following={followingLive}
+                      ref={liveFeed}
+                      tabIndex={0}
+                      role="region"
+                      aria-label="Live transcript"
+                      onScroll={(event) => {
+                        const feed = event.currentTarget;
+                        const following = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 24;
+                        followLive.current = following;
+                        setFollowingLive(following);
+                      }}
+                    >
                       {recording.live_transcript?.length ? (
-                        recording.live_transcript.slice(-4).map((item) => (
+                        recording.live_transcript.map((item) => (
                           <p
                             key={`${item.source}-${item.start}-${item.text}`}
                             data-final={item.final}
                           >
-                            <span>{item.source}</span>
-                            {item.text}
+                            <span className="live-utterance-meta">
+                              <span>{item.source}</span>
+                              <time>{time(item.start)}</time>
+                            </span>
+                            <span className="live-utterance-text">
+                              {item.text}
+                            </span>
                           </p>
                         ))
                       ) : (
-                        <p className="live-transcript-empty">
-                          The transcript will appear here.
-                        </p>
+                        <p className="live-transcript-empty">Listening…</p>
                       )}
                     </div>
+                    {!followingLive && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          followLive.current = true;
+                          setFollowingLive(true);
+                          const feed = liveFeed.current;
+                          if (feed) feed.scrollTop = feed.scrollHeight;
+                        }}
+                      >
+                        Jump to latest
+                      </Button>
+                    )}
                     {recording.live_error && (
                       <p className="live-transcript-error">
                         Live text unavailable. Recording continues.
                       </p>
                     )}
                   </div>
-                  <div
-                    className="recording-bookmarks"
-                    aria-label="Add bookmark"
-                  >
-                    {environment.meeting_templates
-                      .find((item) => item.id === meetingTemplate)
-                      ?.bookmarks.map((kind) => (
-                        <Button
-                          key={kind}
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => void addRecordingBookmark(kind)}
-                        >
-                          <HugeiconsIcon
-                            icon={BookmarkAdd02Icon}
-                            size={14}
-                            strokeWidth={1.8}
-                          />
-                          {kind}
-                        </Button>
-                      ))}
+                  <div className="session-footer">
+                    <div
+                      className="recording-bookmarks"
+                      aria-label="Add bookmark"
+                    >
+                      {environment.meeting_templates
+                        .find((item) => item.id === meetingTemplate)
+                        ?.bookmarks.map((kind) => (
+                          <Button
+                            key={kind}
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => void addRecordingBookmark(kind)}
+                          >
+                            <HugeiconsIcon
+                              icon={BookmarkAdd02Icon}
+                              size={14}
+                              strokeWidth={1.8}
+                            />
+                            {kind}
+                          </Button>
+                        ))}
+                    </div>
+                    {!!recordingBookmarks.length && (
+                      <span className="recording-bookmark-count">
+                        {recordingBookmarks.length}{" "}
+                        {recordingBookmarks.length === 1
+                          ? "bookmark"
+                          : "bookmarks"}
+                        {recordingBookmarks.some(
+                          (bookmark) => bookmark.source === "jev",
+                        ) && " · Smart"}
+                      </span>
+                    )}
+                    <Button
+                      type="button"
+                      className="stop-recording-button"
+                      disabled={busy}
+                      onClick={stopRecording}
+                    >
+                      <HugeiconsIcon
+                        icon={StopIcon}
+                        size={17}
+                        strokeWidth={2}
+                      />
+                      Stop recording
+                    </Button>
                   </div>
-                  {!!recordingBookmarks.length && (
-                    <span className="recording-bookmark-count">
-                      {recordingBookmarks.length}{" "}
-                      {recordingBookmarks.length === 1
-                        ? "bookmark"
-                        : "bookmarks"}
-                    </span>
-                  )}
-                  <Button
-                    type="button"
-                    className="stop-recording-button"
-                    disabled={busy}
-                    onClick={stopRecording}
-                  >
-                    <HugeiconsIcon icon={StopIcon} size={17} strokeWidth={2} />
-                    Stop recording
-                  </Button>
                 </motion.div>
               ) : media ? (
                 <motion.div
@@ -519,159 +616,172 @@ function NewTranscription() {
               )}
             </div>
           </div>
-          <div className="capture-controls">
-            <Button
-              type="button"
-              variant="ghost"
-              className="capture-options-toggle"
-              aria-expanded={optionsOpen}
-              aria-controls="capture-options"
-              onClick={(event) => {
-                setAnimateOptions(event.detail !== 0);
-                setOptionsOpen(!optionsOpen);
-              }}
-            >
-              <span>Options</span>
-              <span>
-                {provider === "deepgram" ? "Deepgram" : presetLabel(quality)} ·{" "}
-                {language === "auto" ? "Auto language" : language.toUpperCase()}
-              </span>
-              <span aria-hidden="true">{optionsOpen ? "−" : "+"}</span>
-            </Button>
-            <AnimatePresence initial={false}>
-              {optionsOpen && (
-                <motion.div
-                  id="capture-options"
-                  key="options"
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: "auto", opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{
-                    duration: reduced || !animateOptions ? 0 : 0.24,
-                    ease: "easeOut",
-                  }}
-                  className="capture-options-content"
-                >
-                  <div className="configuration">
-                    <Field className="field provider-field">
-                      <FieldLabel htmlFor="provider">Transcription</FieldLabel>
-                      <AppSelect
-                        id="provider"
-                        value={provider}
-                        onValueChange={(value) =>
-                          setProvider(value as "local" | "deepgram")
-                        }
-                        options={[
-                          { value: "local", label: "On this Mac" },
-                          {
-                            value: "deepgram",
-                            label: environment.deepgram.configured
-                              ? "Deepgram"
-                              : "Deepgram · connect first",
-                          },
-                        ]}
-                      />
-                    </Field>
-                    <Field className="field language-field">
-                      <FieldLabel htmlFor="language">
-                        Recording language
-                      </FieldLabel>
-                      <LanguageCombobox
-                        id="language"
-                        value={language}
-                        languages={environment.languages}
-                        onValueChange={setLanguage}
-                      />
-                    </Field>
-                    <Field className="field template-field">
-                      <FieldLabel htmlFor="meeting-template">
-                        Meeting template
-                      </FieldLabel>
-                      <AppSelect
-                        id="meeting-template"
-                        value={meetingTemplate}
-                        onValueChange={(value) =>
-                          setMeetingTemplate(value as MeetingTemplate["id"])
-                        }
-                        options={environment.meeting_templates.map((item) => ({
-                          value: item.id,
-                          label: item.name,
-                        }))}
-                      />
-                    </Field>
-                    {provider === "local" && (
-                      <>
-                        <FieldSet className="field quality-field">
-                          <FieldLegend variant="label" id="quality-label">
-                            Quality
-                          </FieldLegend>
-                          <RadioGroup
-                            className="quality-options"
-                            aria-labelledby="quality-label"
-                            value={quality}
-                            onValueChange={(value) =>
-                              chooseQuality(String(value))
-                            }
-                          >
-                            {Object.entries(environment.presets).map(
-                              ([key, preset]) => (
-                                <div className="quality" key={key}>
-                                  <RadioGroupItem
-                                    id={`quality-${key}`}
-                                    value={key}
-                                  />
-                                  <label htmlFor={`quality-${key}`}>
-                                    {presetLabel(key)}
-                                    <small>{preset.memory} memory</small>
-                                  </label>
-                                </div>
-                              ),
-                            )}
-                          </RadioGroup>
-                        </FieldSet>
-                        <Field className="field model-field">
-                          <FieldLabel htmlFor="model">Model</FieldLabel>
-                          <AppSelect
-                            id="model"
-                            value={model}
-                            onValueChange={setModel}
-                            options={installed.map((item) => ({
+          {recording.state !== "recording" && (
+            <div className="capture-controls">
+              <Button
+                type="button"
+                variant="ghost"
+                className="capture-options-toggle"
+                aria-expanded={optionsOpen}
+                aria-controls="capture-options"
+                onClick={(event) => {
+                  setAnimateOptions(event.detail !== 0);
+                  setOptionsOpen(!optionsOpen);
+                }}
+              >
+                <span>Options</span>
+                <span>
+                  {provider === "deepgram" ? "Deepgram" : presetLabel(quality)}{" "}
+                  ·{" "}
+                  {language === "auto"
+                    ? "Auto language"
+                    : language.toUpperCase()}
+                </span>
+                <span aria-hidden="true">{optionsOpen ? "−" : "+"}</span>
+              </Button>
+              <AnimatePresence initial={false}>
+                {optionsOpen && (
+                  <motion.div
+                    id="capture-options"
+                    key="options"
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{
+                      duration: reduced || !animateOptions ? 0 : 0.24,
+                      ease: "easeOut",
+                    }}
+                    className="capture-options-content"
+                  >
+                    <div className="configuration">
+                      <Field className="field provider-field">
+                        <FieldLabel htmlFor="provider">
+                          Transcription
+                        </FieldLabel>
+                        <AppSelect
+                          id="provider"
+                          value={provider}
+                          onValueChange={(value) =>
+                            setProvider(value as "local" | "deepgram")
+                          }
+                          options={[
+                            { value: "local", label: "On this Mac" },
+                            {
+                              value: "deepgram",
+                              label: environment.deepgram.configured
+                                ? "Deepgram"
+                                : "Deepgram · connect first",
+                            },
+                          ]}
+                        />
+                      </Field>
+                      <Field className="field language-field">
+                        <FieldLabel htmlFor="language">
+                          Recording language
+                        </FieldLabel>
+                        <LanguageCombobox
+                          id="language"
+                          value={language}
+                          languages={environment.languages}
+                          onValueChange={setLanguage}
+                        />
+                      </Field>
+                      <Field className="field template-field">
+                        <FieldLabel htmlFor="meeting-template">
+                          Meeting template
+                        </FieldLabel>
+                        <AppSelect
+                          id="meeting-template"
+                          value={meetingTemplate}
+                          onValueChange={(value) =>
+                            setMeetingTemplate(value as MeetingTemplate["id"])
+                          }
+                          options={environment.meeting_templates.map(
+                            (item) => ({
                               value: item.id,
                               label: item.name,
-                            }))}
-                          />
-                        </Field>
-                      </>
-                    )}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-            <div className="configuration-bottom">
-              <p className="helper">
-                {!environment.ffmpeg ? (
-                  "Install FFmpeg to transcribe."
-                ) : provider === "deepgram" &&
-                  !environment.deepgram.configured ? (
-                  <Link to="/settings">Connect Deepgram in Settings</Link>
-                ) : provider === "local" && !model ? (
-                  <Link to="/settings">Install a model in Settings</Link>
-                ) : (
-                  ""
+                            }),
+                          )}
+                        />
+                      </Field>
+                      {provider === "local" && (
+                        <>
+                          <FieldSet className="field quality-field">
+                            <FieldLegend variant="label" id="quality-label">
+                              Quality
+                            </FieldLegend>
+                            <RadioGroup
+                              className="quality-options"
+                              aria-labelledby="quality-label"
+                              value={quality}
+                              onValueChange={(value) =>
+                                chooseQuality(String(value))
+                              }
+                            >
+                              {Object.entries(environment.presets).map(
+                                ([key, preset]) => (
+                                  <div className="quality" key={key}>
+                                    <RadioGroupItem
+                                      id={`quality-${key}`}
+                                      value={key}
+                                    />
+                                    <label htmlFor={`quality-${key}`}>
+                                      {presetLabel(key)}
+                                      <small>{preset.memory} memory</small>
+                                    </label>
+                                  </div>
+                                ),
+                              )}
+                            </RadioGroup>
+                          </FieldSet>
+                          <Field className="field model-field">
+                            <FieldLabel htmlFor="model">Model</FieldLabel>
+                            <AppSelect
+                              id="model"
+                              value={model}
+                              onValueChange={setModel}
+                              options={installed.map((item) => ({
+                                value: item.id,
+                                label: item.name,
+                              }))}
+                            />
+                          </Field>
+                        </>
+                      )}
+                    </div>
+                  </motion.div>
                 )}
-              </p>
-              {media && (
-                <Button id="start-button" disabled={!canStart} onClick={start}>
-                  Start transcription
-                  <HugeiconsIcon
-                    icon={ArrowUpRight01Icon}
-                    size={16}
-                    strokeWidth={1.8}
-                  />
-                </Button>
-              )}
+              </AnimatePresence>
+              <div className="configuration-bottom">
+                <p className="helper">
+                  {!environment.ffmpeg ? (
+                    "Install FFmpeg to transcribe."
+                  ) : provider === "deepgram" &&
+                    !environment.deepgram.configured ? (
+                    <Link to="/settings">Connect Deepgram in Settings</Link>
+                  ) : provider === "local" && !model ? (
+                    <Link to="/settings">Install a model in Settings</Link>
+                  ) : (
+                    ""
+                  )}
+                </p>
+                {media && (
+                  <Button
+                    id="start-button"
+                    disabled={!canStart}
+                    onClick={start}
+                  >
+                    Start transcription
+                    <HugeiconsIcon
+                      icon={ArrowUpRight01Icon}
+                      size={16}
+                      strokeWidth={1.8}
+                    />
+                  </Button>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </motion.div>
     </section>

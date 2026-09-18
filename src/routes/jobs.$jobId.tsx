@@ -6,7 +6,10 @@ import {
   ArrowUp02Icon,
   ArrowUpRight01Icon,
   BookmarkAdd02Icon,
-  Download02Icon,
+  Cancel01Icon,
+  Copy01Icon,
+  Search01Icon,
+  Undo02Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import NumberFlow from "@number-flow/react";
@@ -15,6 +18,7 @@ import { AppSelect } from "@/components/app-select";
 import { buttonVariants } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DeleteButton } from "@/components/ui/delete-button";
+import { ExportPanel } from "@/components/export-panel";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { StepPlayer } from "@/components/ui/step-player";
@@ -28,7 +32,6 @@ import {
   type ConfirmRequest,
 } from "../components/ui";
 import { api, date, time, titleCase } from "../lib/api";
-import { downloadTranscript } from "../lib/export";
 import { queueNotice } from "../lib/notices";
 import {
   checkTranscription,
@@ -250,15 +253,13 @@ function JobProgress({
 }
 
 function Editor({ initial }: { initial: Job }) {
-  const { notice } = useStudio();
+  const { notice, environment } = useStudio();
   const navigate = useNavigate();
   const [title, setTitle] = useState(initial.title);
   const [segments, setSegments] = useState(initial.segments);
   const [saveStatus, setSaveStatus] = useState("All changes saved");
   const [query, setQuery] = useState("");
   const [matchIndex, setMatchIndex] = useState(0);
-  const [format, setFormat] = useState("txt");
-  const [exporting, setExporting] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [volume, setVolume] = useState(1);
   const [ended, setEnded] = useState(false);
@@ -274,6 +275,7 @@ function Editor({ initial }: { initial: Job }) {
   const [bookmarkKind, setBookmarkKind] = useState(
     initial.template.bookmarks[0] || "Key point",
   );
+  const [smartWatching, setSmartWatching] = useState(environment.jev.enabled);
   const media = useRef<HTMLMediaElement>(null);
   const transcript = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -301,6 +303,27 @@ function Editor({ initial }: { initial: Job }) {
   const pendingTitle = useRef<string | null>(null);
   const saving = useRef<Promise<void> | null>(null);
   const undo = useRef<{ id: number; text: string }[]>([]);
+
+  useEffect(() => {
+    if (!environment.jev.enabled) return;
+    let attempts = 0;
+    const refresh = async () => {
+      attempts += 1;
+      try {
+        const value = await api<Job>(`/jobs/${initial.id}`);
+        setBookmarks(value.bookmarks || []);
+      } catch {
+        setSmartWatching(false);
+      }
+      if (attempts >= 30) {
+        window.clearInterval(timer);
+        setSmartWatching(false);
+      }
+    };
+    const timer = window.setInterval(() => void refresh(), 1000);
+    void refresh();
+    return () => window.clearInterval(timer);
+  }, [environment.jev.enabled, initial.id]);
 
   const matches = useMemo(
     () =>
@@ -498,6 +521,27 @@ function Editor({ initial }: { initial: Job }) {
   const selectedMatch = matches.length
     ? matches[Math.min(matchIndex, matches.length - 1)]
     : undefined;
+  useEffect(() => {
+    if (selectedMatch === undefined) return;
+    const row = transcript.current?.querySelector<HTMLElement>(
+      `[data-segment="${selectedMatch}"]`,
+    );
+    if (!row) return;
+    row.scrollIntoView({
+      block: "center",
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "auto"
+        : "smooth",
+    });
+  }, [selectedMatch]);
+
+  function moveToMatch(direction: 1 | -1) {
+    setMatchIndex((current) =>
+      matches.length
+        ? (current + direction + matches.length) % matches.length
+        : 0,
+    );
+  }
   const playerSegments = useMemo(() => {
     if (!segments.length)
       return [{ id: -1, start: 0, end: initial.duration, text: "" }];
@@ -547,115 +591,130 @@ function Editor({ initial }: { initial: Job }) {
       </div>
       {!!segments.length && (
         <div className="editor-toolbar">
-          <label className="visually-hidden" htmlFor="transcript-search">
-            Find in transcript
-          </label>
-          <Input
-            id="transcript-search"
-            type="search"
-            placeholder="Search transcript"
-            value={query}
-            onChange={(event) => {
-              setQuery(event.target.value);
-              setMatchIndex(0);
-            }}
-          />
-          <Button
-            variant="outline"
-            size="sm"
-            aria-label="Previous search match"
-            onClick={() =>
-              setMatchIndex(
-                matches.length
-                  ? (matchIndex - 1 + matches.length) % matches.length
-                  : 0,
-              )
-            }
-          >
-            <HugeiconsIcon icon={ArrowUp02Icon} size={15} strokeWidth={1.8} />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            aria-label="Next search match"
-            onClick={() =>
-              setMatchIndex(
-                matches.length ? (matchIndex + 1) % matches.length : 0,
-              )
-            }
-          >
-            <HugeiconsIcon icon={ArrowDown02Icon} size={15} strokeWidth={1.8} />
-          </Button>
-          <span id="match-count" className="helper" aria-live="polite">
-            {query
-              ? `${matches.length ? matchIndex + 1 : 0} / ${matches.length}`
-              : ""}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              const last = undo.current.pop();
-              if (last) updateSegment(last.id, last.text);
-            }}
-          >
-            Undo
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={async () => {
-              await save();
-              await navigator.clipboard.writeText(
-                segments.map((segment) => segment.text).join("\n\n"),
-              );
-              notice({
-                title: "Transcript copied",
-                description: `${segments.length} ${segments.length === 1 ? "segment" : "segments"} copied to the clipboard.`,
-              });
-            }}
-          >
-            Copy
-          </Button>
-          <label className="visually-hidden" htmlFor="export-format">
-            Export format
-          </label>
-          <AppSelect
-            id="export-format"
-            value={format}
-            onValueChange={setFormat}
-            options={[
-              { value: "txt", label: "TXT" },
-              { value: "srt", label: "SRT" },
-              { value: "vtt", label: "VTT" },
-            ]}
-          />
-          <Button
-            size="sm"
-            disabled={exporting}
-            onClick={async () => {
-              setExporting(true);
-              try {
+          <div className="transcript-search-control">
+            <HugeiconsIcon
+              className="transcript-search-icon"
+              icon={Search01Icon}
+              size={17}
+              strokeWidth={1.8}
+              aria-hidden="true"
+            />
+            <label className="visually-hidden" htmlFor="transcript-search">
+              Find in transcript
+            </label>
+            <Input
+              id="transcript-search"
+              type="search"
+              placeholder="Find in transcript"
+              value={query}
+              aria-controls="transcript-content"
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setMatchIndex(0);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  moveToMatch(event.shiftKey ? -1 : 1);
+                }
+                if (event.key === "Escape" && query) {
+                  event.preventDefault();
+                  setQuery("");
+                  setMatchIndex(0);
+                }
+              }}
+            />
+            {query && (
+              <span id="match-count" className="match-count" aria-live="polite">
+                {matches.length
+                  ? `${Math.min(matchIndex, matches.length - 1) + 1} of ${matches.length}`
+                  : "No matches"}
+              </span>
+            )}
+            {query && (
+              <Button
+                className="search-clear"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Clear search"
+                onClick={() => {
+                  setQuery("");
+                  setMatchIndex(0);
+                }}
+              >
+                <HugeiconsIcon
+                  icon={Cancel01Icon}
+                  size={14}
+                  strokeWidth={1.8}
+                />
+              </Button>
+            )}
+            <div className="search-navigation" aria-label="Search results">
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                disabled={!matches.length}
+                aria-label="Previous search match"
+                onClick={() => moveToMatch(-1)}
+              >
+                <HugeiconsIcon
+                  icon={ArrowUp02Icon}
+                  size={15}
+                  strokeWidth={1.8}
+                />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                disabled={!matches.length}
+                aria-label="Next search match"
+                onClick={() => moveToMatch(1)}
+              >
+                <HugeiconsIcon
+                  icon={ArrowDown02Icon}
+                  size={15}
+                  strokeWidth={1.8}
+                />
+              </Button>
+            </div>
+          </div>
+          <div className="editor-toolbar-actions">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                const last = undo.current.pop();
+                if (last) updateSegment(last.id, last.text);
+              }}
+            >
+              <HugeiconsIcon icon={Undo02Icon} size={15} strokeWidth={1.8} />
+              Undo
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={async () => {
                 await save();
-                await downloadTranscript(
-                  initial.id,
-                  format,
-                  `${title}.${format}`,
+                await navigator.clipboard.writeText(
+                  segments.map((segment) => segment.text).join("\n\n"),
                 );
                 notice({
-                  title: "Transcript exported",
-                  description: `${title}.${format} was saved to Downloads.`,
+                  title: "Transcript copied",
+                  description: `${segments.length} ${segments.length === 1 ? "segment" : "segments"} copied to the clipboard.`,
                 });
-              } catch (reason) {
-                notice((reason as Error).message, true);
-              } finally {
-                setExporting(false);
-              }
-            }}
-          >
-            {exporting ? "Exporting…" : "Export"}
-            <HugeiconsIcon icon={Download02Icon} size={15} strokeWidth={1.8} />
-          </Button>
+              }}
+            >
+              <HugeiconsIcon icon={Copy01Icon} size={15} strokeWidth={1.8} />
+              Copy
+            </Button>
+            <span className="toolbar-divider" aria-hidden="true" />
+            <ExportPanel
+              jobId={initial.id}
+              title={title}
+              onSave={save}
+              notice={notice}
+            />
+          </div>
         </div>
       )}
       <div className="player">
@@ -819,7 +878,10 @@ function Editor({ initial }: { initial: Job }) {
         <div className="bookmark-panel-heading">
           <div>
             <h2 id="bookmarks-title">Bookmarks</h2>
-            <p>{initial.template.name}</p>
+            <p>
+              {initial.template.name}
+              {smartWatching ? " · Finding moments…" : ""}
+            </p>
           </div>
           <div className="bookmark-create">
             <label className="visually-hidden" htmlFor="bookmark-kind">
@@ -855,6 +917,7 @@ function Editor({ initial }: { initial: Job }) {
                 >
                   <span>{time(bookmark.at)}</span>
                   <strong>{bookmark.kind}</strong>
+                  {bookmark.source === "jev" && <em>Smart</em>}
                 </Button>
                 <DeleteButton
                   className="bookmark-delete"
@@ -912,7 +975,7 @@ function Editor({ initial }: { initial: Job }) {
           Follow playback
         </label>
       )}
-      <div className="transcript" ref={transcript}>
+      <div className="transcript" id="transcript-content" ref={transcript}>
         {!!segments.length && (
           <div className="transcript-heading">
             <h2>Transcript</h2>

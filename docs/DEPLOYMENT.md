@@ -24,7 +24,7 @@ npm run deploy:website
 The Apple-silicon DMG is stored in the `whisper-studio-releases` R2 bucket under:
 
 ```text
-releases/Whisper-Studio-0.4.11-arm64.dmg
+releases/Whisper-Studio-0.4.20-arm64.dmg
 ```
 
 The stable public URL is:
@@ -37,11 +37,11 @@ Upload a verified release before deploying a website that links to it:
 
 ```sh
 npm exec wrangler -- r2 object put \
-  whisper-studio-releases/releases/Whisper-Studio-0.4.11-arm64.dmg \
+  whisper-studio-releases/releases/Whisper-Studio-0.4.20-arm64.dmg \
   --remote \
-  --file dist/Whisper-Studio-0.4.11-arm64.dmg \
+  --file dist/Whisper-Studio-0.4.20-arm64.dmg \
   --content-type application/x-apple-diskimage \
-  --content-disposition 'attachment; filename="Whisper-Studio-0.4.11-arm64.dmg"' \
+  --content-disposition 'attachment; filename="Whisper-Studio-0.4.20-arm64.dmg"' \
   --cache-control 'public, max-age=3600'
 ```
 

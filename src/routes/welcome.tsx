@@ -42,9 +42,9 @@ function Welcome() {
   const ready =
     !!selected?.installed && !!environment.ffmpeg && environment.database;
   const headings = [
-    "A little room for your words.",
-    "Find your balance.",
-    "Your studio. Your defaults.",
+    "Welcome to Whisper Studio",
+    "Choose a transcription model",
+    "Choose your defaults",
   ];
 
   useEffect(() => {
@@ -131,332 +131,313 @@ function Welcome() {
 
   return (
     <div className="welcome-page" data-step={step}>
-      <header className="welcome-header">
-        <a className="brand" href="/website/">
-          <img src="/static/mark.svg" alt="" width="34" height="34" />
-          <span>whisper</span>
-        </a>
-        <Button
-          type="button"
-          variant="link"
-          size="sm"
-          className="text-button"
-          disabled={pending}
-          onClick={() => {
-            sessionStorage.setItem("whisper:setup-skipped", "1");
-            void navigate({ to: "/" });
-          }}
-        >
-          Set up later{" "}
-          <HugeiconsIcon
-            icon={ArrowUpRight01Icon}
-            size={16}
-            aria-hidden="true"
-          />
-        </Button>
-      </header>
-      <div className="welcome-layout">
-        <aside className="welcome-art" aria-hidden="true">
-          <MatrixOrb
-            size={240}
-            dots={15}
-            color="#9a674b"
-            state={
-              selected?.downloading
-                ? "thinking"
-                : step === 2
-                  ? "listening"
-                  : "idle"
-            }
-            labels={{ idle: "", thinking: "", listening: "" }}
-          />
-          <div className="welcome-art-caption">
-            <span>YOUR PERSONAL STUDIO</span>
-            <p>
-              Less noise.
-              <br />
-              <em>More clarity.</em>
-            </p>
+      <aside className="welcome-sidebar">
+        <div className="welcome-app-identity">
+          <img src="/static/mark.svg" alt="" width="48" height="48" />
+          <div>
+            <strong>Whisper Studio</strong>
+            <span>Initial setup</span>
           </div>
-        </aside>
-        <section className="welcome-content">
+        </div>
+        <nav aria-label="Setup progress">
           <ol className="welcome-steps" aria-label="Setup progress">
-            {["Welcome", "Model", "Preferences"].map((label, index) => (
-              <li
-                key={label}
-                aria-current={step === index ? "step" : undefined}
-                data-complete={index < step}
-              >
-                <span aria-hidden="true">
-                  {index < step ? (
-                    <HugeiconsIcon
-                      icon={Tick02Icon}
-                      size={14}
-                      aria-hidden="true"
-                    />
-                  ) : (
-                    `0${index + 1}`
-                  )}
-                </span>
-                {label}
-              </li>
-            ))}
-          </ol>
-          <h1 ref={title} tabIndex={-1}>
-            {headings[step]}
-          </h1>
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={step}
-              initial={{ opacity: 0, y: reduced ? 0 : 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: reduced ? 0 : 0.18 }}
-            >
-              {step === 0 && (
-                <div className="welcome-intro">
-                  <p>Recordings become words. Everything stays on your Mac.</p>
-                  <div className="welcome-capabilities">
-                    <span>Local processing</span>
-                    <span>Editable transcripts</span>
-                    <span>Ready to export</span>
-                  </div>
-                  <p className="welcome-note">
-                    One model download. Then you can work offline.
-                  </p>
-                </div>
-              )}
-              {step === 1 && (
-                <div className="welcome-models">
-                  <p className="welcome-description">
-                    Choose your balance of speed and accuracy.
-                  </p>
-                  <FieldSet>
-                    <FieldLegend className="visually-hidden">
-                      Transcription quality
-                    </FieldLegend>
-                    <RadioGroup
-                      value={preset}
-                      onValueChange={(value) => {
-                        setPreset(String(value) as Settings["preset"]);
-                        setError("");
-                      }}
-                      aria-label="Transcription quality"
-                    >
-                      {Object.entries(environment.presets).map(
-                        ([key, value]) => {
-                          const model = environment.models.find(
-                            (item) => item.id === value.model,
-                          );
-                          return (
-                            <label
-                              className="welcome-model"
-                              key={key}
-                              data-selected={preset === key}
-                            >
-                              <RadioGroupItem value={key} disabled={pending} />
-                              <span>
-                                <strong>
-                                  {presetLabel(key)}{" "}
-                                  {key === "balanced" && (
-                                    <small>Recommended</small>
-                                  )}
-                                </strong>
-                                <span>
-                                  {value.memory} memory ·{" "}
-                                  {model?.estimate ||
-                                    "Download size unavailable"}
-                                </span>
-                              </span>
-                              <span className="welcome-model-state">
-                                {model?.installed
-                                  ? "Ready"
-                                  : model?.downloading
-                                    ? "Installing"
-                                    : ""}
-                              </span>
-                            </label>
-                          );
-                        },
-                      )}
-                    </RadioGroup>
-                  </FieldSet>
-                  {selected?.downloading && (
-                    <div className="welcome-download" role="status">
-                      <span>
-                        {selected.phase === "verifying"
-                          ? "Verifying model…"
-                          : "Downloading model…"}
-                      </span>
-                      <ProgressBar
-                        value={selected.progress}
-                        label="Model download progress"
+            {["Welcome", "Transcription model", "Defaults"].map(
+              (label, index) => (
+                <li
+                  key={label}
+                  aria-current={step === index ? "step" : undefined}
+                  data-complete={index < step}
+                >
+                  <span aria-hidden="true">
+                    {index < step ? (
+                      <HugeiconsIcon
+                        icon={Tick02Icon}
+                        size={14}
+                        aria-hidden="true"
                       />
-                      <small>
-                        {bytes(selected.downloaded_bytes)}
-                        {selected.total_bytes
-                          ? ` / ${bytes(selected.total_bytes)}`
-                          : ""}
-                      </small>
-                    </div>
-                  )}
-                  {selected?.error && (
-                    <p className="welcome-error" role="alert">
-                      {selected.error}
-                    </p>
-                  )}
-                  {!selected?.installed && !selected?.downloading && (
-                    <p className="welcome-note">
-                      Downloads {selected?.estimate || "the selected model"}{" "}
-                      from Hugging Face to this Mac.
-                    </p>
-                  )}
-                </div>
-              )}
-              {step === 2 && (
-                <div className="welcome-preferences">
-                  <Field>
-                    <FieldLabel htmlFor="welcome-language">
-                      Recording language
-                    </FieldLabel>
-                    <LanguageCombobox
-                      id="welcome-language"
-                      value={language}
-                      languages={environment.languages}
-                      onValueChange={setLanguage}
-                    />
-                  </Field>
-                  <label className="welcome-retention">
-                    <Checkbox
-                      checked={retain}
-                      onCheckedChange={(value) => setRetain(value === true)}
-                    />
-                    <span>
-                      Keep original recordings
-                      <small>Save a copy in your library.</small>
-                    </span>
-                  </label>
-                  <div className="welcome-ready">
-                    <span aria-hidden="true">
-                      <HugeiconsIcon icon={Tick02Icon} size={20} />
-                    </span>
-                    <span>
-                      {presetLabel(preset)} model{" "}
-                      {selected?.installed ? "is ready" : "is not installed"}
-                      <small>Your recordings are processed on this Mac.</small>
-                    </span>
-                  </div>
-                </div>
-              )}
-            </motion.div>
-          </AnimatePresence>
-          {step > 0 && (!environment.ffmpeg || !environment.database) && (
-            <div className="welcome-error" role="alert">
-              <p>
-                {!environment.ffmpeg
-                  ? "FFmpeg is missing. Install it, then check again."
-                  : "The local database needs attention."}
-              </p>
-              {!environment.ffmpeg && <code>brew install ffmpeg</code>}
-              <Button
-                variant="outline"
-                onClick={() =>
-                  void refreshEnvironment().catch((reason) =>
-                    setError(reason.message),
-                  )
-                }
-              >
-                Check again
-              </Button>
-              <Link to="/settings">
-                Open settings{" "}
-                <HugeiconsIcon
-                  icon={ArrowUpRight01Icon}
-                  size={16}
-                  aria-hidden="true"
-                />
-              </Link>
-            </div>
-          )}
-          {error && (
-            <p className="welcome-error" role="alert">
-              {error}
-            </p>
-          )}
-          <div className="welcome-actions">
-            {step > 0 && (
-              <Button
-                variant="ghost"
-                disabled={pending}
-                onClick={() => go(step - 1)}
-              >
-                Back
-              </Button>
+                    ) : (
+                      `0${index + 1}`
+                    )}
+                  </span>
+                  {label}
+                </li>
+              ),
             )}
-            {step === 0 ? (
-              <Button onClick={() => go(1)}>
-                Set up my studio{" "}
-                <HugeiconsIcon
-                  icon={ArrowUpRight01Icon}
-                  size={16}
-                  aria-hidden="true"
-                />
-              </Button>
-            ) : step === 1 ? (
-              selected?.installed ? (
-                <Button disabled={!ready} onClick={() => go(2)}>
-                  Continue{" "}
+          </ol>
+        </nav>
+        <p className="welcome-privacy">
+          Audio and transcripts stay on this Mac.
+        </p>
+      </aside>
+      <div className="welcome-main">
+        <header className="welcome-toolbar">
+          <span>
+            Step {step + 1} of {headings.length}
+          </span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={pending}
+            onClick={() => {
+              sessionStorage.setItem("whisper:setup-skipped", "1");
+              void navigate({ to: "/" });
+            }}
+          >
+            Set up later
+          </Button>
+        </header>
+        <section className="welcome-content">
+          <div className="welcome-content-scroll">
+            <div className="welcome-orb" aria-hidden="true">
+              <MatrixOrb
+                size={116}
+                dots={11}
+                color="#d87e5f"
+                state={
+                  selected?.downloading
+                    ? "thinking"
+                    : step === 2
+                      ? "listening"
+                      : "idle"
+                }
+                labels={{ idle: "", thinking: "", listening: "" }}
+              />
+            </div>
+            <h1 ref={title} tabIndex={-1}>
+              {headings[step]}
+            </h1>
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={step}
+                initial={{ opacity: 0, y: reduced ? 0 : 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: reduced ? 0 : 0.18 }}
+              >
+                {step === 0 && (
+                  <div className="welcome-intro">
+                    <p>
+                      Turn recordings into editable transcripts privately on
+                      this Mac.
+                    </p>
+                    <div className="welcome-capabilities">
+                      {[
+                        "Process recordings on-device",
+                        "Edit and search every transcript",
+                        "Export in common document formats",
+                      ].map((capability) => (
+                        <span key={capability}>
+                          <HugeiconsIcon icon={Tick02Icon} size={14} />
+                          {capability}
+                        </span>
+                      ))}
+                    </div>
+                    <p className="welcome-note">
+                      Setup downloads one transcription model for offline use.
+                    </p>
+                  </div>
+                )}
+                {step === 1 && (
+                  <div className="welcome-models">
+                    <p className="welcome-description">
+                      Choose your balance of speed and accuracy.
+                    </p>
+                    <FieldSet>
+                      <FieldLegend className="visually-hidden">
+                        Transcription quality
+                      </FieldLegend>
+                      <RadioGroup
+                        value={preset}
+                        onValueChange={(value) => {
+                          setPreset(String(value) as Settings["preset"]);
+                          setError("");
+                        }}
+                        aria-label="Transcription quality"
+                      >
+                        {Object.entries(environment.presets).map(
+                          ([key, value]) => {
+                            const model = environment.models.find(
+                              (item) => item.id === value.model,
+                            );
+                            return (
+                              <label
+                                className="welcome-model"
+                                key={key}
+                                data-selected={preset === key}
+                              >
+                                <RadioGroupItem
+                                  value={key}
+                                  disabled={pending}
+                                />
+                                <span>
+                                  <strong>
+                                    {presetLabel(key)}{" "}
+                                    {key === "balanced" && (
+                                      <small>Recommended</small>
+                                    )}
+                                  </strong>
+                                  <span>
+                                    {value.memory} memory ·{" "}
+                                    {model?.estimate ||
+                                      "Download size unavailable"}
+                                  </span>
+                                </span>
+                                <span className="welcome-model-state">
+                                  {model?.installed
+                                    ? "Ready"
+                                    : model?.downloading
+                                      ? "Installing"
+                                      : ""}
+                                </span>
+                              </label>
+                            );
+                          },
+                        )}
+                      </RadioGroup>
+                    </FieldSet>
+                    {selected?.downloading && (
+                      <div className="welcome-download" role="status">
+                        <span>
+                          {selected.phase === "verifying"
+                            ? "Verifying model…"
+                            : "Downloading model…"}
+                        </span>
+                        <ProgressBar
+                          value={selected.progress}
+                          label="Model download progress"
+                        />
+                        <small>
+                          {bytes(selected.downloaded_bytes)}
+                          {selected.total_bytes
+                            ? ` / ${bytes(selected.total_bytes)}`
+                            : ""}
+                        </small>
+                      </div>
+                    )}
+                    {selected?.error && (
+                      <p className="welcome-error" role="alert">
+                        {selected.error}
+                      </p>
+                    )}
+                    {!selected?.installed && !selected?.downloading && (
+                      <p className="welcome-note">
+                        Downloads {selected?.estimate || "the selected model"}{" "}
+                        from Hugging Face to this Mac.
+                      </p>
+                    )}
+                  </div>
+                )}
+                {step === 2 && (
+                  <div className="welcome-preferences">
+                    <Field>
+                      <FieldLabel htmlFor="welcome-language">
+                        Recording language
+                      </FieldLabel>
+                      <LanguageCombobox
+                        id="welcome-language"
+                        value={language}
+                        languages={environment.languages}
+                        onValueChange={setLanguage}
+                      />
+                    </Field>
+                    <label className="welcome-retention">
+                      <Checkbox
+                        checked={retain}
+                        onCheckedChange={(value) => setRetain(value === true)}
+                      />
+                      <span>
+                        Keep original recordings
+                        <small>Save a copy in your library.</small>
+                      </span>
+                    </label>
+                    <div className="welcome-ready">
+                      <span aria-hidden="true">
+                        <HugeiconsIcon icon={Tick02Icon} size={20} />
+                      </span>
+                      <span>
+                        {presetLabel(preset)} model{" "}
+                        {selected?.installed ? "is ready" : "is not installed"}
+                        <small>
+                          Your recordings are processed on this Mac.
+                        </small>
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+            </AnimatePresence>
+            {step > 0 && (!environment.ffmpeg || !environment.database) && (
+              <div className="welcome-error" role="alert">
+                <p>
+                  {!environment.ffmpeg
+                    ? "FFmpeg is missing. Install it, then check again."
+                    : "The local database needs attention."}
+                </p>
+                {!environment.ffmpeg && <code>brew install ffmpeg</code>}
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    void refreshEnvironment().catch((reason) =>
+                      setError(reason.message),
+                    )
+                  }
+                >
+                  Check again
+                </Button>
+                <Link to="/settings">
+                  Open settings{" "}
                   <HugeiconsIcon
                     icon={ArrowUpRight01Icon}
                     size={16}
                     aria-hidden="true"
                   />
-                </Button>
-              ) : (
-                <Button
-                  disabled={pending || !!selected?.downloading || !selected}
-                  onClick={() => void download()}
-                >
-                  {pending || selected?.downloading
-                    ? "Installing…"
-                    : selected?.error
-                      ? "Retry download"
-                      : "Download model"}
-                </Button>
-              )
-            ) : (
-              <Button
-                disabled={!ready || pending}
-                onClick={() => void finish()}
-              >
-                {pending ? (
-                  "Saving…"
-                ) : (
-                  <>
-                    Add my first recording{" "}
-                    <HugeiconsIcon
-                      icon={ArrowUpRight01Icon}
-                      size={16}
-                      aria-hidden="true"
-                    />
-                  </>
-                )}
-              </Button>
+                </Link>
+              </div>
+            )}
+            {error && (
+              <p className="welcome-error" role="alert">
+                {error}
+              </p>
             )}
           </div>
         </section>
+        <footer className="welcome-actions">
+          {step > 0 && (
+            <Button
+              variant="ghost"
+              disabled={pending}
+              onClick={() => go(step - 1)}
+            >
+              Back
+            </Button>
+          )}
+          {step === 0 ? (
+            <Button onClick={() => go(1)}>Continue</Button>
+          ) : step === 1 ? (
+            selected?.installed ? (
+              <Button disabled={!ready} onClick={() => go(2)}>
+                Continue
+              </Button>
+            ) : (
+              <Button
+                disabled={pending || !!selected?.downloading || !selected}
+                onClick={() => void download()}
+              >
+                {pending || selected?.downloading
+                  ? "Installing…"
+                  : selected?.error
+                    ? "Retry download"
+                    : "Download model"}
+              </Button>
+            )
+          ) : (
+            <Button disabled={!ready || pending} onClick={() => void finish()}>
+              {pending ? "Saving…" : "Done"}
+            </Button>
+          )}
+        </footer>
       </div>
-      <footer className="welcome-footer">
-        <span>Made for your words. Kept on your Mac.</span>
-        <a href="/website/">
-          About Whisper Studio{" "}
-          <HugeiconsIcon
-            icon={ArrowUpRight01Icon}
-            size={16}
-            aria-hidden="true"
-          />
-        </a>
-      </footer>
     </div>
   );
 }

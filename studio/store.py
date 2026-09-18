@@ -15,6 +15,7 @@ DEFAULTS = {
     "max_duration_hours": 4,
     "hardware": "auto",
     "transcription_provider": "local",
+    "smart_moments": False,
     "appearance": "system",
 }
 
@@ -81,6 +82,11 @@ class Store:
                   created REAL NOT NULL)""")
                 db.execute("CREATE INDEX IF NOT EXISTS bookmarks_media ON bookmarks(media_id, at)")
                 db.execute("PRAGMA user_version=5")
+                version = 5
+            if version < 6:
+                db.execute("ALTER TABLE bookmarks ADD COLUMN source TEXT NOT NULL DEFAULT 'manual'")
+                db.execute("ALTER TABLE bookmarks ADD COLUMN confidence REAL")
+                db.execute("PRAGMA user_version=6")
 
     @contextmanager
     def connect(self):

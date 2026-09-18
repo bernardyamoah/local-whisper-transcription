@@ -22,14 +22,17 @@ from starlette.concurrency import run_in_threadpool
 
 from studio import __version__
 from studio.deepgram import Deepgram, DeepgramError
-from studio.exports import filename, render
+from studio.destinations import DestinationError, ExportDestinations
+from studio.exports import filename, render_bundle, render_document
+from studio.jev import Jev, JevError, SmartMoments
 from studio.jobs import ACTIVE, Orchestrator
-from studio.media import MediaError, probe
+from studio.media import MediaError, create_playback, probe
 from studio.models import MODEL_INFO, Models
 from studio.native import NativeBridge
 from studio.security import Boundary
 from studio.store import Store, presets
-from studio.templates import MEETING_TEMPLATES, template as meeting_template, templates
+from studio.templates import MEETING_TEMPLATES, templates
+from studio.templates import template as meeting_template
 
 
 class Settings(BaseModel):
@@ -40,6 +43,7 @@ class Settings(BaseModel):
     max_duration_hours: float = Field(default=4, gt=0, le=24)
     hardware: Literal["auto", "apple"] = "auto"
     transcription_provider: Literal["local", "deepgram"] = "local"
+    smart_moments: bool = False
     appearance: Literal["light", "dark", "system"] = "system"
 
     @field_validator("language")
@@ -124,12 +128,36 @@ class ProviderKey(BaseModel):
     api_key: str = Field(min_length=20, max_length=500)
 
 
-def create_app(root=None, worker=True, command=None, model_command=None, native_command=None, deepgram=None):
+class DestinationSettings(BaseModel):
+    obsidian_vault: str | None = Field(default=None, max_length=2000)
+    obsidian_folder: str | None = Field(default=None, max_length=300)
+    notion_token: str | None = Field(default=None, max_length=1000)
+    notion_parent_id: str | None = Field(default=None, max_length=200)
+    webhook_url: str | None = Field(default=None, max_length=2000)
+    webhook_secret: str | None = Field(default=None, max_length=1000)
+
+
+class Delivery(BaseModel):
+    view: Literal["transcript", "minutes", "actions"] = "minutes"
+
+
+def create_app(
+    root=None,
+    worker=True,
+    command=None,
+    model_command=None,
+    native_command=None,
+    deepgram=None,
+    jev=None,
+):
     store = Store(root or os.getenv("STUDIO_DATA", "~/.local/share/whisper-studio"))
     models, choices = Models(store, command=model_command), presets()
     deepgram = deepgram or Deepgram(store.root)
-    jobs = Orchestrator(store, command, models.path, deepgram.key)
-    native = NativeBridge(store.root, native_command)
+    jev = jev or Jev(store.root)
+    destinations = ExportDestinations(store.root)
+    smart_moments = SmartMoments(store, jev)
+    jobs = Orchestrator(store, command, models.path, deepgram.key, smart_moments.submit_job)
+    native = NativeBridge(store.root, native_command, smart_moments.submit_live)
     for preset in choices.values():
         models.path(preset["model"])
     handler = logging.handlers.RotatingFileHandler(
@@ -141,6 +169,7 @@ def create_app(root=None, worker=True, command=None, model_command=None, native_
 
     @asynccontextmanager
     async def lifespan(app):
+        smart_moments.start()
         if worker:
             jobs.start()
         else:
@@ -148,13 +177,15 @@ def create_app(root=None, worker=True, command=None, model_command=None, native_
         yield
         jobs.close()
         native.close()
+        smart_moments.close()
         models.close()
         logger.removeHandler(handler)
         handler.close()
 
     app = FastAPI(title="Whisper Studio", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
     app.state.store, app.state.jobs, app.state.models, app.state.native = store, jobs, models, native
-    app.state.deepgram = deepgram
+    app.state.deepgram, app.state.jev, app.state.smart_moments = deepgram, jev, smart_moments
+    app.state.destinations = destinations
     app.middleware("http")(Boundary())
 
     @app.exception_handler(KeyError)
@@ -214,6 +245,10 @@ def create_app(root=None, worker=True, command=None, model_command=None, native_
             "origin": "healthy",
             "native": native.capabilities(),
             "deepgram": {"configured": deepgram.configured()},
+            "jev": {
+                "configured": jev.configured(),
+                "enabled": jev.configured() and store.settings()["smart_moments"],
+            },
             "meeting_templates": templates(),
         }
 
@@ -229,6 +264,21 @@ def create_app(root=None, worker=True, command=None, model_command=None, native_
     def disconnect_deepgram(payload: Install):
         deepgram.disconnect()
         return {"configured": False}
+
+    @app.post("/api/providers/jev")
+    def connect_jev(payload: ProviderKey):
+        try:
+            jev.connect(payload.api_key)
+        except JevError as error:
+            raise HTTPException(400, str(error)) from error
+        store.update_settings({"smart_moments": True})
+        return {"configured": True, "enabled": True}
+
+    @app.delete("/api/providers/jev")
+    def disconnect_jev(payload: Install):
+        jev.disconnect()
+        store.update_settings({"smart_moments": False})
+        return {"configured": False, "enabled": False}
 
     @app.get("/api/diagnostics")
     def diagnostics(request: Request):
@@ -248,6 +298,14 @@ def create_app(root=None, worker=True, command=None, model_command=None, native_
     @app.put("/api/settings")
     def update_settings(payload: Settings):
         return store.update_settings(payload.model_dump())
+
+    @app.get("/api/export-destinations")
+    def export_destinations():
+        return destinations.get()
+
+    @app.put("/api/export-destinations")
+    def update_export_destinations(payload: DestinationSettings):
+        return destinations.update(payload.model_dump(exclude_unset=True))
 
     @app.post("/api/models/{model}")
     def install(model: str, payload: Install):
@@ -343,7 +401,7 @@ def create_app(root=None, worker=True, command=None, model_command=None, native_
                 recording["bookmarks"] = [
                     dict(bookmark)
                     for bookmark in db.execute(
-                        "SELECT id,at,kind,note,created FROM bookmarks WHERE media_id=? ORDER BY at,created",
+                        "SELECT id,at,kind,note,created,source,confidence FROM bookmarks WHERE media_id=? ORDER BY at,created",
                         (recording["id"],),
                     )
                 ]
@@ -371,10 +429,14 @@ def create_app(root=None, worker=True, command=None, model_command=None, native_
             "kind": payload.kind,
             "note": payload.note.strip(),
             "created": time.time(),
+            "source": "manual",
+            "confidence": None,
         }
         with store.connect() as db:
             db.execute(
-                "INSERT INTO bookmarks(id,media_id,at,kind,note,created) VALUES(?,?,?,?,?,?)",
+                """INSERT INTO bookmarks(
+                     id,media_id,at,kind,note,created,source,confidence
+                   ) VALUES(?,?,?,?,?,?,?,?)""",
                 tuple(bookmark.values()),
             )
         return bookmark
@@ -394,25 +456,50 @@ def create_app(root=None, worker=True, command=None, model_command=None, native_
             for chunk in iter(lambda: source.read(1024 * 1024), b""):
                 checksum.update(chunk)
         size = temporary.stat().st_size
+        job_id = uuid.uuid4().hex
+        # ScreenCaptureKit includes a placeholder video track in meeting files.
+        # Meetings are audio documents regardless of that implementation detail.
+        info["has_video"] = False
+        playback = store.path("playback", job_id, ".mp3")
+        if not create_playback(temporary, playback, False):
+            raise HTTPException(422, "The meeting was saved but audio playback could not be prepared.")
         temporary.replace(target)
-        with store.connect() as db:
-            db.execute(
-                """INSERT INTO media(
-                  id,name,size,duration,container,codec,checksum,created,has_video
-                ) VALUES(?,?,?,?,?,?,?,?,?)""",
-                (
-                    identifier,
-                    recording["name"] + ".mp4",
-                    size,
-                    info["duration"],
-                    info["container"],
-                    info["codec"],
-                    checksum.hexdigest(),
-                    recording["started"],
-                    info["has_video"],
-                ),
+        live = list(recording["live_transcript"])
+        live.extend(recording["interim"].values())
+        live.sort(key=lambda item: (item.get("start", 0), item.get("source", "")))
+        segments = []
+        for item in live:
+            text = item.get("text", "").strip()
+            if not text:
+                continue
+            start = min(info["duration"], max(0, float(item.get("start", 0))))
+            end = min(info["duration"], max(start, float(item.get("end", start))))
+            segments.append({**item, "text": text, "start": start, "end": end})
+        settings = store.settings()
+        preset = settings["preset"]
+        media = {
+            "id": identifier,
+            "name": recording["name"] + ".mp4",
+            "size": size,
+            "checksum": checksum.hexdigest(),
+        } | info
+        try:
+            return jobs.complete_live(
+                job_id,
+                media,
+                recording["name"],
+                recording["language"],
+                preset,
+                choices[preset]["model"],
+                recording["template"],
+                segments,
+                recording["started"],
             )
-        return {"id": identifier, "name": recording["name"], "size": size} | info
+        except BaseException:
+            # Keep the captured meeting recoverable if saving its transcript fails.
+            target.replace(temporary)
+            playback.unlink(missing_ok=True)
+            raise
 
     @app.post("/api/jobs", status_code=201)
     def create_job(payload: NewJob):
@@ -484,7 +571,7 @@ def create_app(root=None, worker=True, command=None, model_command=None, native_
             job["bookmarks"] = [
                 dict(bookmark)
                 for bookmark in db.execute(
-                    "SELECT id,at,kind,note,created FROM bookmarks WHERE media_id=? ORDER BY at,created",
+                    "SELECT id,at,kind,note,created,source,confidence FROM bookmarks WHERE media_id=? ORDER BY at,created",
                     (job["media_id"],),
                 )
             ]
@@ -505,10 +592,14 @@ def create_app(root=None, worker=True, command=None, model_command=None, native_
             "kind": payload.kind,
             "note": payload.note.strip(),
             "created": time.time(),
+            "source": "manual",
+            "confidence": None,
         }
         with store.connect() as db:
             db.execute(
-                "INSERT INTO bookmarks(id,media_id,at,kind,note,created) VALUES(?,?,?,?,?,?)",
+                """INSERT INTO bookmarks(
+                     id,media_id,at,kind,note,created,source,confidence
+                   ) VALUES(?,?,?,?,?,?,?,?)""",
                 tuple(bookmark.values()),
             )
         return {key: value for key, value in bookmark.items() if key != "media_id"}
@@ -568,18 +659,56 @@ def create_app(root=None, worker=True, command=None, model_command=None, native_
         return {"revision": payload.revision + 1}
 
     @app.get("/api/jobs/{identifier}/export/{kind}")
-    def export(identifier: str, kind: str, timestamps: bool = False):
+    def export(
+        identifier: str,
+        kind: str,
+        view: Literal["transcript", "minutes", "actions"] = "transcript",
+        timestamps: bool = False,
+    ):
         job = detail(identifier)
         if job["state"] != "completed":
             raise HTTPException(409, "Wait until transcription is complete.")
-        content = render(job["segments"], kind, timestamps)
+        suffix = kind
+        if kind == "bundle":
+            media_path = None
+            media_name = None
+            if job["source_available"]:
+                media_path = store.path("sources", job["media_id"])
+                media_name = job["filename"]
+            elif job["playback_available"]:
+                suffix = ".mp4" if job["playback_kind"] == "video" else ".mp3"
+                media_path = store.path("playback", identifier, suffix)
+                media_name = "recording" + suffix
+            content = render_bundle(job, media_path, media_name)
+            media_type = "application/zip"
+            suffix = "zip"
+        else:
+            content, media_type = render_document(job, kind, view, timestamps)
+        label = {"minutes": "meeting-minutes", "actions": "action-items"}.get(view)
+        stem = filename(job["title"] + (f" {label}" if label else ""))
         return Response(
             content,
-            media_type="text/vtt" if kind == "vtt" else "text/plain",
+            media_type=media_type,
             headers={
-                "Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename(job['title']) + '.' + kind)}"
+                "Content-Disposition": f"attachment; filename*=UTF-8''{quote(stem + '.' + suffix)}"
             },
         )
+
+    @app.post("/api/jobs/{identifier}/deliver/{destination}")
+    def deliver(identifier: str, destination: str, payload: Delivery):
+        job = detail(identifier)
+        if job["state"] != "completed":
+            raise HTTPException(409, "Wait until transcription is complete.")
+        try:
+            if destination == "obsidian":
+                return destinations.save_obsidian(job, payload.view)
+            if destination == "notion":
+                return destinations.send_notion(job, payload.view)
+            if destination == "webhook":
+                return destinations.send_webhook(job, payload.view)
+        except DestinationError as error:
+            raise HTTPException(400, str(error)) from error
+        raise HTTPException(404, "Unknown export destination")
 
     @app.get("/api/jobs/{identifier}/audio")
     def audio(identifier: str):

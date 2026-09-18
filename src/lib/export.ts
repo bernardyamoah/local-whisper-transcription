@@ -13,8 +13,10 @@ export async function downloadTranscript(
   jobId: string,
   format: string,
   fallbackName: string,
+  view = "transcript",
 ) {
-  const response = await fetch(`/api/jobs/${jobId}/export/${format}`, {
+  const path = `/api/jobs/${jobId}/export/${format}?view=${encodeURIComponent(view)}`;
+  const response = await fetch(path, {
     headers: { "X-Studio-Request": "1" },
   });
   if (!response.ok) {
@@ -23,9 +25,27 @@ export async function downloadTranscript(
   }
 
   const name = exportName(response, fallbackName);
+  const bridge = window.pywebview?.api;
+  if (bridge?.save_export_url) {
+    await response.body?.cancel();
+    return bridge.save_export_url(
+      name,
+      new URL(path, window.location.href).href,
+    );
+  }
   const blob = await response.blob();
-  const nativeSave = window.pywebview?.api?.save_export;
+  const nativeSave = bridge?.save_export;
   if (nativeSave) {
+    if (["pdf", "docx", "bundle"].includes(format)) {
+      if (!bridge?.save_export_base64)
+        throw new Error("Restart Whisper Studio to enable binary exports.");
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      let binary = "";
+      for (let index = 0; index < bytes.length; index += 32768) {
+        binary += String.fromCharCode(...bytes.subarray(index, index + 32768));
+      }
+      return bridge.save_export_base64(name, btoa(binary));
+    }
     return nativeSave(name, await blob.text());
   }
 

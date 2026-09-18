@@ -5,6 +5,8 @@ type NativeNotificationBridge = {
   notify: (title: string, body: string) => Promise<boolean>;
   request_permission: () => Promise<boolean>;
   save_export?: (name: string, content: string) => Promise<string>;
+  save_export_base64?: (name: string, content: string) => Promise<string>;
+  save_export_url?: (name: string, url: string) => Promise<string>;
 };
 
 declare global {

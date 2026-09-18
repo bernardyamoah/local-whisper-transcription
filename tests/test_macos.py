@@ -49,9 +49,9 @@ def test_save_export_file_uses_download_name_and_avoids_overwrite(tmp_path):
 
 def test_save_export_file_rejects_unknown_format(tmp_path):
     try:
-        macos.save_export_file("Meeting.pdf", "No", tmp_path)
+        macos.save_export_file("Meeting.mp4", "No", tmp_path)
     except ValueError as error:
-        assert str(error) == "Choose TXT, SRT, or VTT"
+        assert str(error) == "Unsupported export format"
     else:
         raise AssertionError("Unknown export format was accepted")
 

@@ -58,7 +58,7 @@ async function mockSystemNotifications(page) {
   });
 }
 
-test("record a meeting and prepare it for transcription", async ({ page }) => {
+test("record a meeting and keep its live transcript", async ({ page }) => {
   await page.goto("/");
   await expect(
     page.getByRole("heading", { name: "New transcription" }),
@@ -66,33 +66,93 @@ test("record a meeting and prepare it for transcription", async ({ page }) => {
   await page.getByRole("button", { name: "Record meeting" }).click();
   await expect(page.getByText("Recording", { exact: true })).toBeVisible();
   await expect(page.getByText("00:00", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Options/ })).toBeHidden();
+  const recordingStage = page.locator('.capture-stage[data-recording="true"]');
+  await expect
+    .poll(async () => (await recordingStage.boundingBox())?.height)
+    .toBeLessThan(700);
   await expect(
     page.getByText("We should ship the live meeting view."),
   ).toBeVisible();
+  await expect(page.locator(".capture-orb")).toBeVisible();
+  await expect.poll(async () => {
+    const orb = await page.locator(".capture-orb").boundingBox();
+    const timer = await page.locator(".session-timer").boundingBox();
+    return Math.abs(orb.x + orb.width / 2 - timer.x - timer.width / 2);
+  }).toBeLessThan(2);
+  await page.screenshot({path: "test-results/recording-compact.png"});
+  await page.getByRole("button", {name: "Expand transcript"}).click();
+  await expect(page.locator(".capture-orb")).toHaveCount(0);
+  await expect(page.getByText("We should ship the live meeting view.")).toBeVisible();
+  await expect.poll(async () => {
+    const toolbar = await page.locator(".session-toolbar").boundingBox();
+    const timer = await page.locator(".session-timer").boundingBox();
+    return Math.abs(toolbar.x + toolbar.width / 2 - timer.x - timer.width / 2);
+  }).toBeLessThan(2);
+  await page.waitForTimeout(350);
+  await page.screenshot({path: "test-results/recording-expanded.png"});
+  await page.getByRole("button", {name: "Compact view"}).click();
   await page.getByRole("button", { name: "Decision", exact: true }).click();
   await expect(page.getByText("1 bookmark", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Stop recording" }).click();
-  await expect(page.locator("#recording-title")).toHaveValue(
+  await expect(page.locator("#transcript-title")).toHaveValue(
     "Meeting recording",
   );
+  await expect(page.locator("video")).toHaveCount(0);
+  await expect(page.locator("audio")).toHaveCount(1);
   await expect(
-    page.getByText("Recording ready", { exact: true }),
+    page.getByText("We should ship the live meeting view."),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Start transcription" }),
-  ).toBeEnabled();
-  await page.getByRole("button", { name: /^Options/ }).click();
-  await choose(page, "#provider", "Deepgram · connect first");
-  await expect(
-    page.getByRole("link", { name: "Connect Deepgram in Settings" }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Start transcription" }),
-  ).toBeDisabled();
-  await choose(page, "#provider", "On this Mac");
-  await expect(
-    page.getByRole("button", { name: "Start transcription" }),
-  ).toBeEnabled();
+  ).toHaveCount(0);
+});
+
+test("live transcript preserves scroll position and earlier lines", async ({ page }) => {
+  let lines = Array.from({ length: 30 }, (_, index) => ({
+    source: "Meeting", start: index, text: `Meeting line ${index + 1}`, final: true,
+  }));
+  await page.route("**/api/recordings", async (route) => {
+    await route.fulfill({ json: { state: "recording", elapsed: 90, live_transcript: lines } });
+  });
+  await page.goto("/");
+  const feed = page.getByRole("region", { name: "Live transcript", exact: true });
+  await expect(feed.locator("p")).toHaveCount(30);
+  await expect(page.locator(".capture-orb")).toHaveCSS("width", "220px");
+  await expect.poll(() => feed.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+  await feed.evaluate((element) => { element.scrollTop = 0; });
+  await expect(page.getByRole("button", { name: "Jump to latest" })).toBeVisible();
+  lines = [...lines, { source: "Meeting", start: 31, text: "Latest meeting line", final: true }];
+  await expect(feed.locator("p")).toHaveCount(31);
+  expect(await feed.evaluate((element) => element.scrollTop)).toBeLessThan(2);
+  await page.getByRole("button", { name: "Jump to latest" }).click();
+  await expect.poll(() => feed.evaluate((element) => element.scrollHeight - element.scrollTop - element.clientHeight)).toBeLessThan(2);
+  await page.getByRole("button", { name: "Expand transcript" }).click();
+  await page.waitForTimeout(350);
+  await feed.evaluate((element) => { element.scrollTop = 0; });
+  await expect(page.getByRole("button", { name: "Jump to latest" })).toBeVisible();
+  lines = [...lines, { source: "Meeting", start: 32, text: "Another meeting line", final: true }];
+  await expect(feed.locator("p")).toHaveCount(32);
+  expect(await feed.evaluate((element) => element.scrollTop)).toBeLessThan(2);
+});
+
+test("settings sections are separate navigable pages with a version", async ({ page }) => {
+  await page.goto("/settings");
+  await expect(page.locator(".settings-version")).toContainText(/Version \d+\.\d+\.\d+/);
+  await expect(page.locator(".settings-section:visible")).toHaveCount(1);
+  await page.getByRole("link", { name: "Preferences", exact: true }).click();
+  await expect(page).toHaveURL(/section=preferences/);
+  await expect(page.locator("#settings-appearance")).toBeHidden();
+  await expect(page.locator("#settings-preferences")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Preferences", exact: true })).toHaveAttribute("aria-current", "page");
+  await page.getByRole("link", { name: "Connections", exact: true }).click();
+  await expect(page.locator(".settings-section:visible")).toHaveCount(2);
+  await page.goBack();
+  await expect(page.locator("#settings-preferences")).toBeVisible();
+  await page.reload();
+  await expect(page.locator("#settings-preferences")).toBeVisible();
+  await page.getByRole("link", { name: "Diagnostics", exact: true }).click();
+  await expect(page.getByText("Studio version", { exact: true })).toBeVisible();
 });
 
 test("import, process, edit, reload, search, copy, export and delete", async ({
@@ -181,7 +241,7 @@ test("import, process, edit, reload, search, copy, export and delete", async ({
     .poll(() => audio.evaluate((element) => element.paused))
     .toBe(true);
   await page
-    .locator('[data-slot="step-player-track"]')
+    .locator('.transcript')
     .getByRole("button", { name: "Play from 00:01" })
     .click();
   await expect
@@ -207,8 +267,28 @@ test("import, process, edit, reload, search, copy, export and delete", async ({
   await expect(page.locator("#save-status")).toHaveText("All changes saved");
   await page.reload();
   await expect(text).toHaveValue("A corrected thought, saved for later.");
+  await page.evaluate(() => {
+    window.searchScrolls = [];
+    const scrollIntoView = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = function (...args) {
+      if (this instanceof HTMLElement && this.dataset.segment) {
+        window.searchScrolls.push(this.dataset.segment);
+      }
+      return scrollIntoView.apply(this, args);
+    };
+  });
+  await page.locator("#transcript-search").fill("a");
+  await expect(page.locator("#match-count")).toHaveText("1 of 2");
+  await expect
+    .poll(() => page.evaluate(() => window.searchScrolls.length))
+    .toBe(1);
+  await page.getByRole("button", { name: "Next search match" }).click();
+  await expect(page.locator("#match-count")).toHaveText("2 of 2");
+  await expect
+    .poll(() => page.evaluate(() => window.searchScrolls.length))
+    .toBe(2);
   await page.locator("#transcript-search").fill("corrected");
-  await expect(page.locator("#match-count")).toHaveText("1 / 1");
+  await expect(page.locator("#match-count")).toHaveText("1 of 1");
   await page.getByRole("button", { name: "Copy", exact: true }).click();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toContain(
     "A corrected thought",
@@ -219,10 +299,13 @@ test("import, process, edit, reload, search, copy, export and delete", async ({
   await expect(
     page.getByText("2 segments copied to the clipboard.", { exact: true }),
   ).toBeVisible();
+  await page.getByRole("button", { name: "Export", exact: true }).click();
   for (const format of ["txt", "srt", "vtt"]) {
-    await choose(page, "#export-format", format.toUpperCase());
+    await page
+      .getByRole("radio", { name: format.toUpperCase(), exact: true })
+      .click();
     const download = page.waitForEvent("download");
-    await page.getByRole("button", { name: "Export", exact: true }).click();
+    await page.getByRole("button", { name: "Download", exact: true }).click();
     const file = await download;
     expect(file.suggestedFilename()).toBe(`A conversation.${format}`);
     const stream = await file.createReadStream();
@@ -241,21 +324,28 @@ test("import, process, edit, reload, search, copy, export and delete", async ({
       },
     };
   });
-  await choose(page, "#export-format", "TXT");
-  await page.getByRole("button", { name: "Export", exact: true }).click();
+  await page.getByRole("radio", { name: "TXT", exact: true }).click();
+  await page.getByRole("button", { name: "Download", exact: true }).click();
   await expect
     .poll(() => page.evaluate(() => window.nativeExports))
     .toContainEqual({
       name: "A conversation.txt",
       content: expect.stringContaining("A corrected thought"),
     });
-  await expect(
-    page.getByText("Transcript exported", { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByText("Export saved", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Close export" }).click();
   await page.screenshot({
     path: "test-results/editor-desktop.png",
     fullPage: true,
   });
+  await page.evaluate(() => document.documentElement.classList.add("dark"));
+  await page.waitForTimeout(300);
+  await page.screenshot({
+    path: "test-results/editor-desktop-dark.png",
+    fullPage: true,
+  });
+  await page.evaluate(() => document.documentElement.classList.remove("dark"));
+  await page.waitForTimeout(300);
   const accessibility = await new AxeBuilder({ page }).analyze();
   expect(accessibility.violations).toEqual([]);
   await choose(page, "#delete-scope", "Everything");
@@ -314,6 +404,7 @@ for (const width of [1440, 768, 390]) {
     expect(accessibility.violations).toEqual([]);
     await page.getByRole("link", { name: "Settings" }).click();
     await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
+    await page.getByRole("link", { name: "Preferences", exact: true }).click();
     await choose(page, "#default-preset", "Quick");
     await page.getByRole("button", { name: "Save preferences" }).click();
     await expect(page.locator("[data-sileo-title]")).toContainText(
@@ -384,6 +475,14 @@ test("appearance follows light, dark, and system preferences", async ({
   await expect(
     page.getByRole("heading", { name: "Add recording" }),
   ).toBeVisible();
+  await expect(page.locator(".upload-workspace")).toHaveCSS(
+    "background-color",
+    "rgba(0, 0, 0, 0)",
+  );
+  await expect(page.locator(".upload-workspace")).toHaveCSS(
+    "box-shadow",
+    "none",
+  );
   await expectDarkControl(page.getByRole("button", { name: "Record meeting" }));
   await page.getByRole("button", { name: /^Options/ }).click();
   await expectDarkControl(page.locator("#provider"));
@@ -505,6 +604,19 @@ test("video transcripts use synchronized video playback", async ({ page }) => {
     page.getByRole("slider", { name: "Seek recording" }),
   ).toBeVisible();
   await expect(page.locator('[data-slot="step-player-control"]')).toBeVisible();
+  const player = page.locator(".player");
+  const videoFrame = page.locator(".video-player-frame");
+  const transcript = page.locator(".transcript");
+  await expect(player).toHaveCSS("position", "static");
+  expect((await videoFrame.boundingBox()).height).toBeLessThanOrEqual(420);
+  await transcript.evaluate((element) =>
+    element.scrollIntoView({ block: "start" }),
+  );
+  const playerBox = await player.boundingBox();
+  const transcriptBox = await transcript.boundingBox();
+  expect(transcriptBox.y).toBeGreaterThanOrEqual(
+    Math.min(0, playerBox.y + playerBox.height),
+  );
   await page.screenshot({
     path: "test-results/video-player.png",
     fullPage: true,
@@ -601,6 +713,7 @@ test("model download shows measured progress, survives reload, and verifies befo
     }
   });
   await page.goto("/settings");
+  await page.getByRole("link", { name: "Models", exact: true }).click();
   await page.getByPlaceholder("Search models").fill("small");
   await expect(page.locator(".model-row")).toHaveCount(1);
   await page

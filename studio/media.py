@@ -48,3 +48,66 @@ def probe(path, max_hours):
         if isinstance(error, MediaError):
             raise
         raise MediaError("This file is corrupt, encrypted, or cannot be decoded by FFmpeg.") from error
+
+
+def create_playback(source, target, has_video):
+    ffmpeg = shutil.which("ffmpeg")
+    if not ffmpeg:
+        return False
+    command = (
+        [
+            ffmpeg,
+            "-nostdin",
+            "-v",
+            "error",
+            "-i",
+            str(source),
+            "-map",
+            "0:v:0",
+            "-map",
+            "0:a:0",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "veryfast",
+            "-crf",
+            "24",
+            "-vf",
+            "scale='min(1280,iw)':-2",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "96k",
+            "-movflags",
+            "+faststart",
+            "-y",
+            str(target),
+        ]
+        if has_video
+        else [
+            ffmpeg,
+            "-nostdin",
+            "-v",
+            "error",
+            "-i",
+            str(source),
+            "-vn",
+            "-codec:a",
+            "libmp3lame",
+            "-b:a",
+            "64k",
+            "-y",
+            str(target),
+        ]
+    )
+    try:
+        subprocess.run(
+            command,
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        return True
+    except subprocess.SubprocessError:
+        target.unlink(missing_ok=True)
+        return False

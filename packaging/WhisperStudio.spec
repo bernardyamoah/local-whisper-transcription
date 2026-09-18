@@ -29,7 +29,6 @@ datas = [
     *collect_data_files("mlx"),
     *collect_data_files("mlx_whisper"),
     *copy_metadata("mlx-whisper"),
-    *copy_metadata("local-whisper-transcription"),
 ]
 hidden_imports = [
     *collect_submodules("uvicorn"),

@@ -5,17 +5,46 @@ import ScreenCaptureKit
 import Speech
 
 final class RecordingDelegate: NSObject, SCRecordingOutputDelegate {
-    var failure: Error?
+    private let lock = NSLock()
+    private var result: Result<Void, Error>?
+    private var waiter: CheckedContinuation<Void, Error>?
+
+    private func complete(_ value: Result<Void, Error>) {
+        lock.lock()
+        guard result == nil else { lock.unlock(); return }
+        result = value
+        let continuation = waiter
+        waiter = nil
+        lock.unlock()
+        continuation?.resume(with: value)
+    }
+
+    func recordingOutputDidFinishRecording(_ recordingOutput: SCRecordingOutput) {
+        complete(.success(()))
+    }
+
+    func waitForFinish() async throws {
+        try await withCheckedThrowingContinuation { continuation in
+            lock.lock()
+            if let result {
+                lock.unlock()
+                continuation.resume(with: result)
+            } else {
+                waiter = continuation
+                lock.unlock()
+            }
+        }
+    }
 
     func recordingOutput(_ recordingOutput: SCRecordingOutput, didFailWithError error: any Error) {
-        failure = error
+        complete(.failure(error))
     }
 }
 
 enum MeetingRecorder {
     static func run(outputURL: URL, localeIdentifier: String) async throws {
         guard #available(macOS 15, *) else { throw BridgeError.unsupportedRecording }
-        let stream = try await makeStream(outputURL: outputURL)
+        let (stream, delegate) = try await makeStream(outputURL: outputURL)
         if #available(macOS 26, *), SpeechTranscriber.isAvailable {
             var liveTranscribers = [LiveTranscriber]()
             for (type, source) in [(SCStreamOutputType.audio, "Meeting"), (.microphone, "You")] {
@@ -38,19 +67,20 @@ enum MeetingRecorder {
                     ])
                 }
             }
-            try await capture(stream: stream, outputURL: outputURL) {
+            try await capture(stream: stream, delegate: delegate, outputURL: outputURL) {
                 for live in liveTranscribers {
                     await live.finish()
                 }
             }
         } else {
-            try await capture(stream: stream, outputURL: outputURL) {}
+            try await capture(stream: stream, delegate: delegate, outputURL: outputURL) {}
         }
     }
 
     @available(macOS 15, *)
     private static func capture(
         stream: SCStream,
+        delegate: RecordingDelegate,
         outputURL: URL,
         finishLiveTranscript: () async -> Void
     ) async throws {
@@ -58,14 +88,14 @@ enum MeetingRecorder {
         JSONLine.write(["type": "recording.started", "path": outputURL.path])
         await waitForStopSignal()
         try await stream.stopCapture()
+        try await delegate.waitForFinish()
         await finishLiveTranscript()
-        try await Task.sleep(for: .milliseconds(300))
         let size = (try? outputURL.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
         JSONLine.write(["type": "recording.stopped", "path": outputURL.path, "size": size])
     }
 
     @available(macOS 15, *)
-    private static func makeStream(outputURL: URL) async throws -> SCStream {
+    private static func makeStream(outputURL: URL) async throws -> (SCStream, RecordingDelegate) {
         let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
         guard let display = content.displays.first else { throw BridgeError.noDisplay }
         let filter = SCContentFilter(display: display, excludingApplications: [], exceptingWindows: [])
@@ -79,7 +109,7 @@ enum MeetingRecorder {
         let output = SCRecordingOutput(configuration: outputConfiguration, delegate: delegate)
         try stream.addRecordingOutput(output)
         RecorderLifetime.retain(delegate: delegate, output: output)
-        return stream
+        return (stream, delegate)
     }
 
     @available(macOS 15, *)

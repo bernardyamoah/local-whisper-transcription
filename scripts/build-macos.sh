@@ -4,6 +4,11 @@ set -euo pipefail
 project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$project_root"
 
+pyinstaller_config="$(mktemp -d)"
+staging=""
+trap 'rm -rf "$pyinstaller_config"; [[ -z "$staging" ]] || rm -rf "$staging"' EXIT
+export PYINSTALLER_CONFIG_DIR="$pyinstaller_config"
+
 if [[ "$(uname -s)" != "Darwin" ]]; then
   echo "The macOS app must be built on macOS." >&2
   exit 1
@@ -91,7 +96,6 @@ fi
 version="$(sed -n 's/^version = "\([^"]*\)"/\1/p' pyproject.toml | head -1)"
 architecture="$(uname -m)"
 staging="$(mktemp -d)"
-trap 'rm -rf "$staging"' EXIT
 cp -R "$project_root/dist/Whisper Studio.app" "$staging/Whisper Studio.app"
 ln -s /Applications "$staging/Applications"
 dmg="$project_root/dist/Whisper-Studio-$version-$architecture.dmg"

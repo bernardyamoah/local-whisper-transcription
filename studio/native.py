@@ -14,7 +14,7 @@ from pathlib import Path
 
 
 class NativeBridge:
-    def __init__(self, root: Path, command: list[str] | None = None):
+    def __init__(self, root: Path, command: list[str] | None = None, on_final=None):
         self.root = root
         self.command = command if command is not None else self._find_command()
         self.lock = threading.RLock()
@@ -22,6 +22,7 @@ class NativeBridge:
         self.reader: threading.Thread | None = None
         self.recording: dict | None = None
         self._capabilities: dict | None = None
+        self.on_final = on_final
 
     def capabilities(self) -> dict:
         if self._capabilities is not None:
@@ -71,6 +72,7 @@ class NativeBridge:
                 "started": time.time(),
                 "state": "recording",
                 "path": path,
+                "language": language,
                 "template": template,
                 "live_transcript": [],
                 "interim": {},
@@ -112,7 +114,7 @@ class NativeBridge:
             if self.process.poll() is None:
                 os.killpg(self.process.pid, signal.SIGINT)
             try:
-                self.process.wait(timeout=20)
+                self.process.wait(timeout=120)
             except subprocess.TimeoutExpired as timeout:
                 os.killpg(self.process.pid, signal.SIGTERM)
                 try:
@@ -144,8 +146,7 @@ class NativeBridge:
             except subprocess.TimeoutExpired:
                 self.process.kill()
 
-    @staticmethod
-    def _consume_events(recording: dict, process: subprocess.Popen) -> None:
+    def _consume_events(self, recording: dict, process: subprocess.Popen) -> None:
         for line in process.stdout:
             try:
                 event = json.loads(line)
@@ -169,6 +170,8 @@ class NativeBridge:
             if item["final"]:
                 recording["interim"].pop(source, None)
                 recording["live_transcript"].append(item)
+                if self.on_final:
+                    self.on_final(recording["id"], recording["template"], item)
             else:
                 recording["interim"][source] = item
 

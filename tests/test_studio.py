@@ -1,5 +1,9 @@
+import io
+import json
 import sys
+import subprocess
 import time
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -46,15 +50,16 @@ def test_full_pipeline_edit_export_playback_delete(client, audio, app):
     )
     assert bookmark.status_code == 201
     assert bookmark.json()["kind"] == "Decision"
-    assert client.post(
-        f"/api/jobs/{job['id']}/bookmarks",
-        json={"at": 0.5, "kind": "Blocker"},
-    ).status_code == 400
+    assert (
+        client.post(
+            f"/api/jobs/{job['id']}/bookmarks",
+            json={"at": 0.5, "kind": "Blocker"},
+        ).status_code
+        == 400
+    )
     bookmarked = client.get("/api/jobs/" + job["id"]).json()
     assert bookmarked["bookmarks"][0]["at"] == 0.5
-    assert client.delete(
-        f"/api/jobs/{job['id']}/bookmarks/{bookmark.json()['id']}"
-    ).status_code == 200
+    assert client.delete(f"/api/jobs/{job['id']}/bookmarks/{bookmark.json()['id']}").status_code == 200
     assert detail["segments"][0]["text"] == "Corrected words."
     assert detail["segments"][0]["original"] == "Every voice has a story."
     assert detail["segments"][0]["start"] == segment["start"]
@@ -109,6 +114,53 @@ def test_video_import_creates_video_playback(client, video, app):
     deleted = client.request("DELETE", f"/api/jobs/{job['id']}", json={"scope": "all", "confirm": True})
     assert deleted.status_code == 200
     assert not app.state.store.path("playback", job["id"], ".mp4").exists()
+
+
+def test_rich_exports_bundle_and_obsidian_destination(client, audio, app, tmp_path):
+    created = new_job(client, audio)
+    job = wait_state(client, created["id"])
+    client.post(
+        f"/api/jobs/{job['id']}/bookmarks",
+        json={"at": 0.5, "kind": "Action", "note": "Send the revised brief"},
+    )
+
+    markdown = client.get(f"/api/jobs/{job['id']}/export/md?view=minutes")
+    assert markdown.status_code == 200
+    assert "## Action items" in markdown.text
+    assert "Send the revised brief" in markdown.text
+
+    actions = client.get(f"/api/jobs/{job['id']}/export/json?view=actions")
+    assert json.loads(actions.text)["content"][0]["kind"] == "Action"
+    assert client.get(f"/api/jobs/{job['id']}/export/csv?view=actions").text.startswith("type,time,text")
+
+    pdf = client.get(f"/api/jobs/{job['id']}/export/pdf?view=minutes")
+    assert pdf.content.startswith(b"%PDF-1.4")
+    assert pdf.headers["content-type"] == "application/pdf"
+
+    docx = client.get(f"/api/jobs/{job['id']}/export/docx?view=minutes")
+    with zipfile.ZipFile(io.BytesIO(docx.content)) as archive:
+        assert "Send the revised brief" in archive.read("word/document.xml").decode()
+
+    bundle = client.get(f"/api/jobs/{job['id']}/export/bundle")
+    with zipfile.ZipFile(io.BytesIO(bundle.content)) as archive:
+        assert {"transcript.md", "meeting-minutes.md", "transcript.json", "manifest.json"} <= set(
+            archive.namelist()
+        )
+        assert any(name.startswith("media/") for name in archive.namelist())
+
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    configured = client.put(
+        "/api/export-destinations",
+        json={"obsidian_vault": str(vault), "obsidian_folder": "Meetings"},
+    )
+    assert configured.json()["obsidian_vault"] == str(vault)
+    delivered = client.post(
+        f"/api/jobs/{job['id']}/deliver/obsidian", json={"view": "minutes"}
+    )
+    assert delivered.status_code == 200
+    note = next((vault / "Meetings").glob("*.md"))
+    assert "Send the revised brief" in note.read_text()
 
 
 def test_cancel_and_retry(client, audio, app):
@@ -317,7 +369,7 @@ def test_paths_confined(tmp_path):
         store.path("sources", "symlink")
 
 
-def test_native_recording_becomes_imported_media(tmp_path):
+def test_native_recording_becomes_completed_live_transcript(tmp_path):
     command = [sys.executable, str(Path(__file__).parent / "fake_native_bridge.py")]
     app = create_app(tmp_path, worker=False, native_command=command)
     with TestClient(app, headers={"X-Studio-Request": "1"}) as client:
@@ -340,22 +392,90 @@ def test_native_recording_becomes_imported_media(tmp_path):
         bookmark = client.post("/api/recordings/bookmarks", json={"kind": "Blocker"})
         assert bookmark.status_code == 201
         assert bookmark.json()["at"] >= 0
-        assert client.post(
-            "/api/recordings/bookmarks", json={"kind": "Key point"}
-        ).status_code == 400
+        assert client.post("/api/recordings/bookmarks", json={"kind": "Key point"}).status_code == 400
         assert client.post("/api/recordings", json={"name": "Another"}).status_code == 409
         stopped = client.post("/api/recordings/stop")
         assert stopped.status_code == 201
-        assert stopped.json()["name"] == "Weekly planning"
+        assert stopped.json()["title"] == "Weekly planning"
+        assert stopped.json()["state"] == "completed"
         assert stopped.json()["duration"] == 1
-        retained = client.get("/api/media").json()
-        assert retained[0]["id"] == stopped.json()["id"]
+        transcript = client.get(f"/api/jobs/{stopped.json()['id']}").json()
+        assert transcript["segments"][0]["text"] == "We should ship the live meeting view."
+        assert transcript["playback_available"] is True
+        assert client.get("/api/media").json() == []
         with app.state.store.connect() as db:
             stored = db.execute(
-                "SELECT kind FROM bookmarks WHERE media_id=?", (stopped.json()["id"],)
+                "SELECT kind FROM bookmarks WHERE media_id=?", (stopped.json()["media_id"],)
             ).fetchone()
         assert stored["kind"] == "Blocker"
         assert client.get("/api/recordings").json() == {"state": "idle"}
+
+
+def test_long_meeting_with_placeholder_video_has_readable_audio_playback(tmp_path, monkeypatch):
+    from studio.native import NativeBridge
+
+    app = create_app(tmp_path, worker=False)
+    recording_file = tmp_path / "meeting.mp4"
+    subprocess.run([
+        "ffmpeg", "-v", "error", "-f", "lavfi", "-i", "color=s=2x2:r=1",
+        "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000",
+        "-t", "75", "-c:v", "libx264", "-c:a", "aac", str(recording_file),
+    ], check=True)
+    monkeypatch.setattr(NativeBridge, "stop", lambda self: {
+        "id": "long-meeting", "path": recording_file, "name": "Long meeting",
+        "language": "en", "template": "general",
+        "started": time.time() - 75,
+        "live_transcript": [{"source": "Meeting", "start": 65, "end": 74,
+                             "text": "This is the end of a longer meeting."}],
+        "interim": {},
+    })
+    with TestClient(app, headers={"X-Studio-Request": "1"}) as client:
+        stopped = client.post("/api/recordings/stop")
+        assert stopped.status_code == 201, stopped.text
+        job = stopped.json()
+        assert job["duration"] >= 75
+        assert job["playback_kind"] == "audio"
+        assert job["playback_available"] is True
+        detail = client.get(f"/api/jobs/{job['id']}").json()
+        assert detail["segments"][0]["text"].endswith("longer meeting.")
+        assert client.get(f"/api/jobs/{job['id']}/audio").status_code == 200
+
+
+def test_completed_transcript_receives_smart_moments(tmp_path, audio):
+    class FakeJev:
+        def configured(self):
+            return True
+
+        def classify(self, segments, template):
+            return [
+                {
+                    "at": segment["start"],
+                    "kind": "Decision",
+                    "confidence": 0.94,
+                    "importance": 2.1,
+                }
+                for segment in segments
+            ]
+
+    command = [sys.executable, str(Path(__file__).parent / "fake_engine.py")]
+    app = create_app(tmp_path, command=command, jev=FakeJev())
+    model = app.state.models.path("small")
+    model.mkdir()
+    for name in [".ready", "config.json", "weights.npz"]:
+        (model / name).write_text("test")
+    with TestClient(app, headers={"X-Studio-Request": "1"}) as client:
+        settings = client.get("/api/settings").json() | {"smart_moments": True}
+        assert client.put("/api/settings", json=settings).status_code == 200
+        created = new_job(client, audio)
+        wait_state(client, created["id"])
+        bookmarks = []
+        for _ in range(50):
+            bookmarks = client.get(f"/api/jobs/{created['id']}").json()["bookmarks"]
+            if bookmarks:
+                break
+            time.sleep(0.02)
+        assert bookmarks[0]["kind"] == "Decision"
+        assert bookmarks[0]["source"] == "jev"
 
 
 def test_deepgram_provider_does_not_require_local_model(tmp_path, audio):

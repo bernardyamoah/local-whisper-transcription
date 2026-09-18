@@ -35,6 +35,7 @@ export type Environment = {
     locales: string[];
   };
   deepgram: { configured: boolean };
+  jev: { configured: boolean; enabled: boolean };
   meeting_templates: MeetingTemplate[];
 };
 
@@ -59,6 +60,8 @@ export type Bookmark = {
   kind: string;
   note: string;
   created: number;
+  source: "manual" | "jev";
+  confidence: number | null;
 };
 
 export type RecordingStatus = {
@@ -81,7 +84,18 @@ export type Settings = {
   max_duration_hours: number;
   hardware: "auto" | "apple";
   transcription_provider: "local" | "deepgram";
+  smart_moments: boolean;
   appearance: "light" | "dark" | "system";
+};
+
+export type ExportDestinations = {
+  obsidian_vault: string;
+  obsidian_folder: string;
+  notion_parent_id: string;
+  notion_connected: boolean;
+  webhook_url: string;
+  webhook_connected: boolean;
+  webhook_secret_set: boolean;
 };
 
 export type Media = {

@@ -1,5 +1,5 @@
 const DOWNLOAD_PATH = "/download/Whisper-Studio.dmg";
-const DOWNLOAD_KEY = "releases/Whisper-Studio-0.4.11-arm64.dmg";
+const DOWNLOAD_KEY = "releases/Whisper-Studio-0.4.20-arm64.dmg";
 
 function downloadHeaders(object) {
   const headers = new Headers();
@@ -10,7 +10,7 @@ function downloadHeaders(object) {
   headers.set("content-type", "application/x-apple-diskimage");
   headers.set(
     "content-disposition",
-    'attachment; filename="Whisper-Studio-0.4.11-arm64.dmg"',
+    'attachment; filename="Whisper-Studio-0.4.20-arm64.dmg"',
   );
   headers.set("x-content-type-options", "nosniff");
   return headers;

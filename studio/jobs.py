@@ -26,11 +26,12 @@ ACTIVE = {"preparing", "transcribing", "saving", "cancelling"}
 
 
 class Orchestrator:
-    def __init__(self, store, command=None, model_path=None, deepgram_key=None):
+    def __init__(self, store, command=None, model_path=None, deepgram_key=None, on_completed=None):
         self.store = store
         self.command = command or [sys.executable, "-m", "studio.engine"]
         self.model_path = model_path or (lambda model: self.store.path("models", model))
         self.deepgram_key = deepgram_key or (lambda: "")
+        self.on_completed = on_completed
         self.lock = threading.RLock()
         self.stop = threading.Event()
         self.thread = None
@@ -96,6 +97,90 @@ class Orchestrator:
                 ),
             )
             db.execute("INSERT INTO transitions(job_id,state,at) VALUES(?,?,?)", (identifier, "queued", now))
+        return self.store.job(identifier)
+
+    def complete_live(
+        self,
+        identifier,
+        media,
+        title,
+        language,
+        preset,
+        model,
+        template,
+        segments,
+        started,
+    ):
+        now = time.time()
+        sources = {}
+        with self.lock, self.store.connect() as db:
+            db.execute(
+                """INSERT INTO media(
+                     id,name,size,duration,container,codec,checksum,created,has_video
+                   ) VALUES(?,?,?,?,?,?,?,?,?)""",
+                (
+                    media["id"],
+                    media["name"],
+                    media["size"],
+                    media["duration"],
+                    media["container"],
+                    media["codec"],
+                    media["checksum"],
+                    started,
+                    media["has_video"],
+                ),
+            )
+            db.execute(
+                """INSERT INTO jobs(
+                     id,media_id,title,state,stage,language,preset,model,backend,progress,
+                     provider,template,created,updated,started,finished,engine_version
+                   ) VALUES(?,?,?,'completed','completed',?,?,?,'speech-analyzer',100,
+                            'local',?,?,?,?,?,'Apple SpeechAnalyzer')""",
+                (
+                    identifier,
+                    media["id"],
+                    title,
+                    language,
+                    preset,
+                    model,
+                    template,
+                    started,
+                    now,
+                    started,
+                    now,
+                ),
+            )
+            for sequence, segment in enumerate(segments):
+                source = segment.get("source", "Meeting")
+                if source not in sources:
+                    sources[source] = len(sources)
+                db.execute(
+                    """INSERT INTO segments(
+                         job_id,sequence,start,end,original,text,confidence,speaker,speaker_name,words
+                       ) VALUES(?,?,?,?,?,?,?,?,?,?)""",
+                    (
+                        identifier,
+                        sequence,
+                        segment["start"],
+                        segment["end"],
+                        segment["text"],
+                        segment["text"],
+                        None,
+                        sources[source],
+                        None if source == "Meeting" else source,
+                        "[]",
+                    ),
+                )
+            db.execute(
+                "INSERT INTO meeting_notes(job_id,summary,chapters,topics) VALUES(?,?,?,?)",
+                (identifier, "", "[]", "[]"),
+            )
+            db.execute(
+                "INSERT INTO transitions(job_id,state,at) VALUES(?,?,?)",
+                (identifier, "completed", now),
+            )
+        if self.on_completed:
+            self.on_completed(identifier)
         return self.store.job(identifier)
 
     def cancel(self, identifier):
@@ -269,6 +354,8 @@ class Orchestrator:
                         detected_language=result["language"],
                         engine_version=result["version"],
                     )
+                if self.on_completed:
+                    self.on_completed(identifier)
                 with self.lock:
                     if not self.store.settings()["retain_source"]:
                         try:

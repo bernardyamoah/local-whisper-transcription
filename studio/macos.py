@@ -7,6 +7,7 @@ as a macOS application bundle.
 
 from __future__ import annotations
 
+import base64
 import fcntl
 import multiprocessing
 import os
@@ -15,6 +16,7 @@ import sys
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 import uuid
 from contextlib import contextmanager
@@ -29,10 +31,17 @@ APP_NAME = "Whisper Studio"
 STARTUP_TIMEOUT = 30
 
 
+EXPORT_SUFFIXES = {".txt", ".srt", ".vtt", ".md", ".pdf", ".docx", ".csv", ".json", ".zip"}
+
+
 def save_export_file(name: str, content: str, directory: Path | None = None) -> str:
+    return save_export_bytes(name, content.encode("utf-8"), directory)
+
+
+def export_target(name: str, directory: Path | None = None):
     suffix = Path(name).suffix.lower()
-    if suffix not in {".txt", ".srt", ".vtt"}:
-        raise ValueError("Choose TXT, SRT, or VTT")
+    if suffix not in EXPORT_SUFFIXES:
+        raise ValueError("Unsupported export format")
     destination = directory or Path.home() / "Downloads"
     destination.mkdir(parents=True, exist_ok=True)
     stem = filename(Path(name).stem)
@@ -42,11 +51,15 @@ def save_export_file(name: str, content: str, directory: Path | None = None) -> 
         target = destination / f"{label}{suffix}"
         try:
             descriptor = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-            break
+            return descriptor, target
         except FileExistsError:
             attempt += 1
+
+
+def save_export_bytes(name: str, content: bytes, directory: Path | None = None) -> str:
+    descriptor, target = export_target(name, directory)
     try:
-        with os.fdopen(descriptor, "w", encoding="utf-8", newline="") as stream:
+        with os.fdopen(descriptor, "wb") as stream:
             stream.write(content)
     except Exception:
         target.unlink(missing_ok=True)
@@ -95,6 +108,28 @@ class SystemNotifications:
 
     def save_export(self, name: str, content: str) -> str:
         return save_export_file(name, content)
+
+    def save_export_base64(self, name: str, content: str) -> str:
+        return save_export_bytes(name, base64.b64decode(content, validate=True))
+
+    def save_export_url(self, name: str, url: str) -> str:
+        parsed = urllib.parse.urlparse(url)
+        if parsed.hostname not in {"127.0.0.1", "localhost"} or not parsed.path.startswith("/api/jobs/"):
+            raise ValueError("Invalid local export URL")
+        descriptor, target = export_target(name)
+        request = urllib.request.Request(url, headers={"X-Studio-Request": "1"})
+        try:
+            with urllib.request.urlopen(request, timeout=120) as response, os.fdopen(descriptor, "wb") as stream:
+                while chunk := response.read(1024 * 1024):
+                    stream.write(chunk)
+        except Exception:
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
+            target.unlink(missing_ok=True)
+            raise
+        return str(target)
 
 
 def application_data_directory() -> Path:

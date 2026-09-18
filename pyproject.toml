@@ -1,6 +1,6 @@
 [project]
 name = "local-whisper-transcription"
-version = "0.4.11"
+version = "0.4.20"
 description = "A private, local-first listening and transcription studio"
 requires-python = ">=3.12,<3.14"
 dependencies = ["fastapi>=0.115,<1", "uvicorn>=0.34,<1", "mlx-whisper>=0.4,<1", "huggingface-hub>=1.31,<2"]

@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { AppSelect } from "@/components/app-select";
 import { LanguageCombobox } from "@/components/language-combobox";
 import { Badge } from "@/components/ui/badge";
@@ -31,15 +31,28 @@ import {
 } from "../lib/system-notifications";
 import type { Model, Settings } from "../lib/types";
 
-export const Route = createFileRoute("/settings")({ component: SettingsPage });
+const sections = ["appearance", "preferences", "connections", "models", "diagnostics"] as const;
+type SettingsSection = (typeof sections)[number];
+
+export const Route = createFileRoute("/settings")({
+  validateSearch: (search: Record<string, unknown>): { section?: SettingsSection } => ({
+    section: sections.includes(search.section as SettingsSection)
+      ? search.section as SettingsSection
+      : undefined,
+  }),
+  component: SettingsPage,
+});
 
 function SettingsPage() {
   const { environment, settings, setSettings, refreshEnvironment, notice } =
     useStudio();
   const [draft, setDraft] = useState(settings);
   const [query, setQuery] = useState("");
+  const activeSection = Route.useSearch().section ?? "appearance";
   const [deepgramKey, setDeepgramKey] = useState("");
   const [connectingDeepgram, setConnectingDeepgram] = useState(false);
+  const [jevKey, setJevKey] = useState("");
+  const [connectingJev, setConnectingJev] = useState(false);
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
   const [pendingAction, setPendingAction] = useState<
     null | (() => Promise<void>)
@@ -142,6 +155,38 @@ function SettingsPage() {
     notice({ title: "Deepgram disconnected" });
   }
 
+  async function connectJev() {
+    setConnectingJev(true);
+    try {
+      await api("/providers/jev", {
+        method: "POST",
+        body: JSON.stringify({ api_key: jevKey }),
+      });
+      const value = await api<Settings>("/settings");
+      setJevKey("");
+      setDraft(value);
+      setSettings(value);
+      await refreshEnvironment();
+      notice({ title: "Smart Moments connected" });
+    } catch (reason) {
+      notice((reason as Error).message, true);
+    } finally {
+      setConnectingJev(false);
+    }
+  }
+
+  async function disconnectJev() {
+    await api("/providers/jev", {
+      method: "DELETE",
+      body: JSON.stringify({ confirm: true }),
+    });
+    const value = await api<Settings>("/settings");
+    setDraft(value);
+    setSettings(value);
+    await refreshEnvironment();
+    notice({ title: "Smart Moments disconnected" });
+  }
+
   const presets = Object.fromEntries(
     Object.entries(environment.presets).map(([name, preset]) => [
       preset.model,
@@ -169,7 +214,7 @@ function SettingsPage() {
     });
 
   return (
-    <section>
+    <section className="settings-page">
       <PageHeader
         title="Settings"
         action={
@@ -178,9 +223,28 @@ function SettingsPage() {
           </Link>
         }
       />
+      <nav className="settings-navigation" aria-label="Settings sections">
+        {sections.map((id) => (
+          <Link
+            key={id}
+            to="/settings"
+            search={{ section: id }}
+            aria-current={
+              activeSection === id ? "page" : undefined
+            }
+          >
+            {titleCase(id)}
+          </Link>
+        ))}
+        <small className="settings-version">Whisper Studio<br />Version {environment.version}</small>
+      </nav>
       <div className="settings-grid">
         <div>
-          <section className="settings-section appearance-section">
+          <section
+            id="settings-appearance"
+            hidden={activeSection !== "appearance"}
+            className="settings-section appearance-section"
+          >
             <h2>Appearance</h2>
             <RadioGroup
               className="appearance-options"
@@ -201,7 +265,12 @@ function SettingsPage() {
               ))}
             </RadioGroup>
           </section>
-          <form className="settings-section" onSubmit={save}>
+          <form
+            id="settings-preferences"
+            hidden={activeSection !== "preferences"}
+            className="settings-section"
+            onSubmit={save}
+          >
             <h2>Preferences</h2>
             <Field className="field">
               <FieldLabel htmlFor="default-language">
@@ -301,9 +370,23 @@ function SettingsPage() {
               />
               <span>Keep recordings after transcription</span>
             </label>
+            <label className="toggle-row">
+              <Checkbox
+                disabled={!environment.jev.configured}
+                checked={draft.smart_moments}
+                onCheckedChange={(checked) =>
+                  setDraft({ ...draft, smart_moments: checked === true })
+                }
+              />
+              <span>Automatic Smart Moments</span>
+            </label>
             <Button type="submit">Save preferences</Button>
           </form>
-          <div className="settings-section deepgram-settings">
+          <div
+            id="settings-connections"
+            hidden={activeSection !== "connections"}
+            className="settings-section deepgram-settings"
+          >
             <div className="model-heading">
               <h2>Deepgram</h2>
               <Badge variant="outline">
@@ -337,9 +420,41 @@ function SettingsPage() {
               </>
             )}
           </div>
+          <div className="settings-section jev-settings" hidden={activeSection !== "connections"}>
+            <div className="model-heading">
+              <h2>Smart Moments</h2>
+              <Badge variant="outline">
+                {environment.jev.configured ? "Connected" : "Not connected"}
+              </Badge>
+            </div>
+            {environment.jev.configured ? (
+              <Button variant="outline" onClick={disconnectJev}>
+                Disconnect
+              </Button>
+            ) : (
+              <>
+                <Field className="field">
+                  <FieldLabel htmlFor="jev-key">TypeSafe API key</FieldLabel>
+                  <Input
+                    id="jev-key"
+                    type="password"
+                    autoComplete="off"
+                    value={jevKey}
+                    onChange={(event) => setJevKey(event.target.value)}
+                  />
+                </Field>
+                <Button
+                  disabled={connectingJev || jevKey.length < 20}
+                  onClick={connectJev}
+                >
+                  {connectingJev ? "Connecting…" : "Connect"}
+                </Button>
+              </>
+            )}
+          </div>
         </div>
         <div>
-          <div className="settings-section">
+          <div id="settings-models" className="settings-section" hidden={activeSection !== "models"}>
             <div className="model-heading">
               <h2>Models</h2>
               <span className="count">
@@ -399,8 +514,8 @@ function SettingsPage() {
               )}
             </div>
           </div>
-          <details className="settings-section">
-            <summary>Diagnostics</summary>
+          <section id="settings-diagnostics" className="settings-section" hidden={activeSection !== "diagnostics"}>
+            <h2>Diagnostics</h2>
             <dl>
               <dt>Studio version</dt>
               <dd>{environment.version}</dd>
@@ -427,7 +542,7 @@ function SettingsPage() {
             >
               Download diagnostics
             </a>
-          </details>
+          </section>
         </div>
       </div>
       <ConfirmDialog

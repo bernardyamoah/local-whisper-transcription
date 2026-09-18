@@ -98,10 +98,10 @@ test("first-run setup requires a download action, recovers from failure, resumes
   await page.goto("/");
   await expect(page).toHaveURL(/\/welcome$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "A little room for your words.",
+    "Welcome to Whisper Studio",
   );
   expect(requests).toBe(0);
-  await page.getByRole("button", { name: "Set up my studio" }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
   await expect(page.getByRole("radio", { name: /Balanced/ })).toBeChecked();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await page.getByRole("button", { name: "Download model" }).click();
@@ -112,7 +112,7 @@ test("first-run setup requires a download action, recovers from failure, resumes
   ).toBeVisible();
   await page.reload();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "Find your balance.",
+    "Choose a transcription model",
   );
   expect(requests).toBe(2);
   phase = "ready";
@@ -126,7 +126,7 @@ test("first-run setup requires a download action, recovers from failure, resumes
   await page
     .getByRole("checkbox", { name: /Keep original recordings/ })
     .uncheck();
-  await page.getByRole("button", { name: "Add my first recording" }).click();
+  await page.getByRole("button", { name: "Done" }).click();
   await expect(
     page.getByRole("heading", { name: "New transcription" }),
   ).toBeVisible();
@@ -164,7 +164,7 @@ test("setup can be skipped and exposes missing dependencies on mobile", async ({
     await route.fulfill({ json: { ...(await response.json()), ffmpeg: null } });
   });
   await page.goto("/welcome");
-  await page.getByRole("button", { name: "Set up my studio" }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
   await expect(page.getByRole("alert")).toContainText("FFmpeg is missing");
   await expect(page.getByRole("button", { name: "Continue" })).toBeDisabled();
   expect(
