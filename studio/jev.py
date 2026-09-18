@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import queue
 import sqlite3
@@ -126,7 +127,10 @@ class Jev:
         )
         try:
             with self.opener(request, timeout=30) as response:
-                return json.load(response)
+                payload = json.load(response)
+                if not isinstance(payload, dict) or not isinstance(payload.get("answers"), dict):
+                    raise JevError("TypeSafe returned an invalid response. Try again.")
+                return payload
         except HTTPError as error:
             message = "TypeSafe rejected this request."
             try:
@@ -136,8 +140,10 @@ class Jev:
             except (json.JSONDecodeError, AttributeError):
                 pass
             raise JevError(message) from error
-        except URLError as error:
-            raise JevError("TypeSafe could not be reached.") from error
+        except (URLError, TimeoutError) as error:
+            raise JevError("TypeSafe could not be reached. Check your connection and try again.") from error
+        except (json.JSONDecodeError, UnicodeDecodeError) as error:
+            raise JevError("TypeSafe returned an invalid response. Try again.") from error
 
 
 class SmartMoments:
@@ -150,6 +156,7 @@ class SmartMoments:
         self.pending: queue.Queue[tuple] = queue.Queue(maxsize=500)
         self.stop = threading.Event()
         self.thread: threading.Thread | None = None
+        self.last_error: str | None = None
 
     def start(self) -> None:
         self.thread = threading.Thread(target=self._run, daemon=True, name="smart-moments")
@@ -188,8 +195,10 @@ class SmartMoments:
                     self._process_job(task[1])
                 else:
                     self._process_segments(task[1], task[2], task[3])
-            except (JevError, OSError, ValueError, TypeError, KeyError, sqlite3.Error):
-                pass
+                self.last_error = None
+            except (JevError, OSError, ValueError, TypeError, KeyError, AttributeError, sqlite3.Error) as error:
+                self.last_error = str(error) if isinstance(error, JevError) else "Smart Moments processing failed."
+                logging.getLogger("studio").warning("Smart Moments failed: %s", type(error).__name__)
             finally:
                 self.pending.task_done()
 

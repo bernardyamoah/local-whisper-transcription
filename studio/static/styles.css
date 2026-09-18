@@ -5779,7 +5779,7 @@ h3 {
   display: none;
 }
 .recording-session[data-expanded="false"] .live-transcript-feed {
-  height: 140px;
+  height: clamp(260px, 36vh, 420px);
   min-height: 0;
   overflow-y: auto;
   mask-image: linear-gradient(transparent, black 18%, black 85%, transparent);
@@ -5793,6 +5793,237 @@ h3 {
   border: 0;
   background: transparent;
 }
-.recording-session[data-expanded="false"] .live-transcript-feed[data-following="false"] {
+.recording-session[data-expanded="false"]
+  .live-transcript-feed[data-following="false"] {
   mask-image: none;
 }
+
+/* Illustrated appearance choices, like a macOS preference pane. */
+.settings-page .appearance-gallery {
+  max-width: 860px;
+  padding: 0;
+  gap: 22px;
+  background: transparent;
+  border-radius: 0;
+}
+.settings-page .appearance-gallery label,
+.dark .settings-page .appearance-gallery label[data-selected="true"] {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--foreground);
+  border-radius: 10px;
+}
+.appearance-illustration {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1.48;
+  overflow: hidden;
+  isolation: isolate;
+  border-radius: 10px;
+  background: linear-gradient(145deg, #d7e8ee, #b5cdbb 60%, #7e9d91);
+  box-shadow: inset 0 0 0 1px #0000000d;
+  transition:
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+.appearance-landscape {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.appearance-landscape::before,
+.appearance-landscape::after {
+  content: "";
+  position: absolute;
+  width: 140%;
+  height: 110%;
+  border-radius: 45%;
+  transform: rotate(-22deg);
+  left: -10%;
+  top: 65%;
+  background: #597f745c;
+}
+.appearance-landscape::after {
+  left: 28%;
+  top: 45%;
+  background: #eef4e459;
+  transform: rotate(26deg);
+}
+.appearance-mini-window {
+  position: absolute;
+  display: grid;
+  grid-template-columns: 27% 1fr;
+  grid-template-rows: 19px 1fr;
+  inset: 22% 12% 15%;
+  overflow: hidden;
+  border-radius: 6px;
+  background: #ffffffeb;
+  box-shadow:
+    0 8px 20px #1e34372e,
+    0 0 0 0.5px #ffffffb3;
+}
+.appearance-mini-title {
+  grid-column: 1/-1;
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  padding: 0 7px;
+  background: #f6f7f7;
+  border-bottom: 0.5px solid #00000012;
+}
+.appearance-mini-title i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #b1b7b4;
+}
+.appearance-mini-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px 5px;
+  background: #e8ece9;
+  border-right: 0.5px solid #0000000d;
+}
+.appearance-mini-sidebar i {
+  height: 4px;
+  border-radius: 2px;
+  background: #aab6ae;
+}
+.appearance-mini-sidebar i:first-child {
+  background: #779684;
+}
+.appearance-mini-content {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 9px 10px;
+}
+.appearance-mini-wave {
+  height: 30px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-bottom: 5px;
+}
+.appearance-mini-wave i {
+  width: 2px;
+  max-height: 100%;
+  border-radius: 2px;
+  background: #708e7c;
+}
+.appearance-mini-line {
+  display: block;
+  height: 3px;
+  border-radius: 2px;
+  width: 90%;
+  background: #d0d7d2;
+}
+.appearance-mini-line:last-child {
+  width: 60%;
+}
+.appearance-choice-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.appearance-choice-dot {
+  width: 13px;
+  height: 13px;
+  border: 1px solid var(--input);
+  border-radius: 50%;
+  background: var(--surface);
+}
+.appearance-gallery label[data-selected="true"] .appearance-choice-dot {
+  border: 4px solid #007aff;
+  background: #fff;
+}
+.appearance-gallery label[data-selected="true"] .appearance-illustration {
+  box-shadow:
+    0 0 0 3px var(--surface),
+    0 0 0 5px #007aff;
+}
+.appearance-gallery label:hover .appearance-illustration {
+  transform: translateY(-2px);
+}
+.appearance-illustration[data-theme="dark"] {
+  background: linear-gradient(145deg, #263743, #334c4b 60%, #172b2d);
+}
+.appearance-illustration[data-theme="dark"] .appearance-landscape::after {
+  background: #617f7759;
+}
+.appearance-illustration[data-theme="dark"] .appearance-mini-window {
+  background: #252a2d;
+  box-shadow:
+    0 8px 20px #00000050,
+    0 0 0 0.5px #ffffff40;
+}
+.appearance-illustration[data-theme="dark"] .appearance-mini-title {
+  background: #34393c;
+}
+.appearance-illustration[data-theme="dark"] .appearance-mini-sidebar {
+  background: #303738;
+}
+.appearance-illustration[data-theme="dark"] .appearance-mini-sidebar i {
+  background: #58665f;
+}
+.appearance-illustration[data-theme="dark"] .appearance-mini-line {
+  background: #4f5c56;
+}
+.appearance-illustration[data-theme="dark"] .appearance-mini-wave i {
+  background: #a1c2ae;
+}
+.appearance-illustration[data-theme="system"] {
+  background: linear-gradient(90deg, #c8dfd7 50%, #304749 50%);
+}
+.appearance-illustration[data-theme="system"] .appearance-mini-window {
+  background: linear-gradient(90deg, #ffffffeb 50%, #252a2d 50%);
+}
+.appearance-illustration[data-theme="system"] .appearance-mini-title {
+  background: linear-gradient(90deg, #f6f7f7 50%, #34393c 50%);
+}
+.appearance-illustration[data-theme="system"] .appearance-mini-line {
+  background: linear-gradient(90deg, #d0d7d2 32%, #58685e 32%);
+}
+@media (max-width: 620px) {
+  .settings-page .appearance-gallery {
+    gap: 14px;
+  }
+  .appearance-illustration {
+    aspect-ratio: 1.1;
+  }
+  .appearance-mini-window {
+    inset: 22% 8% 18%;
+  }
+  .appearance-mini-content {
+    padding: 5px;
+    gap: 3px;
+  }
+  .appearance-mini-wave {
+    gap: 2px;
+    height: 22px;
+    margin: 0;
+  }
+  .appearance-mini-wave i {
+    width: 1px;
+  }
+  .appearance-choice-label {
+    font-size: 11px;
+    gap: 5px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .appearance-gallery label:hover .appearance-illustration {
+    transform: none;
+  }
+}
+.appearance-gallery .appearance-illustration,
+.appearance-gallery .appearance-choice-label { pointer-events: none; }

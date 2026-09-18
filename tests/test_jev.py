@@ -109,3 +109,45 @@ def test_jev_connection_enables_and_disconnect_disables_smart_moments(tmp_path):
         disconnected = client.request("DELETE", "/api/providers/jev", json={"confirm": True})
         assert disconnected.json() == {"configured": False, "enabled": False}
         assert client.get("/api/settings").json()["smart_moments"] is False
+
+
+def test_jev_timeout_and_invalid_payload_are_actionable(tmp_path):
+    import pytest
+    from studio.jev import JevError
+
+    def timeout(*args, **kwargs):
+        raise TimeoutError()
+
+    with pytest.raises(JevError, match="could not be reached"):
+        Jev(tmp_path, opener=timeout).connect("t" * 32)
+    with pytest.raises(JevError, match="invalid response"):
+        Jev(tmp_path, opener=lambda *args, **kwargs: Response(b'[]')).connect("t" * 32)
+    assert not (tmp_path / '.typesafe-key').exists()
+
+
+def test_worker_reports_errors_and_recovers(tmp_path):
+    from studio.jev import JevError
+
+    class Provider:
+        calls = 0
+        def configured(self):
+            return True
+        def classify(self, *args):
+            self.calls += 1
+            if self.calls == 1:
+                raise JevError('TypeSafe could not be reached.')
+            return []
+
+    store = Store(tmp_path)
+    store.update_settings({'smart_moments': True})
+    smart = SmartMoments(store, Provider())
+    smart.start()
+    try:
+        smart.submit_live('sample', 'general', {'text': 'Test', 'start': 0})
+        smart.pending.join()
+        assert smart.last_error == 'TypeSafe could not be reached.'
+        smart.submit_live('sample', 'general', {'text': 'Test', 'start': 0})
+        smart.pending.join()
+        assert smart.last_error is None
+    finally:
+        smart.close()

@@ -248,6 +248,7 @@ def create_app(
             "jev": {
                 "configured": jev.configured(),
                 "enabled": jev.configured() and store.settings()["smart_moments"],
+                "error": smart_moments.last_error,
             },
             "meeting_templates": templates(),
         }

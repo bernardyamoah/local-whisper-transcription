@@ -31,13 +31,21 @@ import {
 } from "../lib/system-notifications";
 import type { Model, Settings } from "../lib/types";
 
-const sections = ["appearance", "preferences", "connections", "models", "diagnostics"] as const;
+const sections = [
+  "appearance",
+  "preferences",
+  "connections",
+  "models",
+  "diagnostics",
+] as const;
 type SettingsSection = (typeof sections)[number];
 
 export const Route = createFileRoute("/settings")({
-  validateSearch: (search: Record<string, unknown>): { section?: SettingsSection } => ({
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { section?: SettingsSection } => ({
     section: sections.includes(search.section as SettingsSection)
-      ? search.section as SettingsSection
+      ? (search.section as SettingsSection)
       : undefined,
   }),
   component: SettingsPage,
@@ -229,14 +237,16 @@ function SettingsPage() {
             key={id}
             to="/settings"
             search={{ section: id }}
-            aria-current={
-              activeSection === id ? "page" : undefined
-            }
+            aria-current={activeSection === id ? "page" : undefined}
           >
             {titleCase(id)}
           </Link>
         ))}
-        <small className="settings-version">Whisper Studio<br />Version {environment.version}</small>
+        <small className="settings-version">
+          Whisper Studio
+          <br />
+          Version {environment.version}
+        </small>
       </nav>
       <div className="settings-grid">
         <div>
@@ -247,7 +257,7 @@ function SettingsPage() {
           >
             <h2>Appearance</h2>
             <RadioGroup
-              className="appearance-options"
+              className="appearance-options appearance-gallery"
               aria-label="Appearance"
               value={draft.appearance}
               onValueChange={(value) =>
@@ -260,7 +270,44 @@ function SettingsPage() {
                   data-selected={draft.appearance === appearance}
                 >
                   <RadioGroupItem value={appearance} />
-                  {titleCase(appearance)}
+                  <span
+                    className="appearance-illustration"
+                    data-theme={appearance}
+                    aria-hidden="true"
+                  >
+                    <span className="appearance-landscape" />
+                    <span className="appearance-mini-window">
+                      <span className="appearance-mini-title">
+                        <i />
+                        <i />
+                        <i />
+                      </span>
+                      <span className="appearance-mini-sidebar">
+                        <i />
+                        <i />
+                        <i />
+                      </span>
+                      <span className="appearance-mini-content">
+                        <span className="appearance-mini-wave">
+                          {[8, 16, 11, 24, 18, 30, 14, 22, 10, 17, 8].map(
+                            (height, index) => (
+                              <i key={index} style={{ height }} />
+                            ),
+                          )}
+                        </span>
+                        <span className="appearance-mini-line" />
+                        <span className="appearance-mini-line" />
+                        <span className="appearance-mini-line" />
+                      </span>
+                    </span>
+                  </span>
+                  <span className="appearance-choice-label">
+                    <span>{titleCase(appearance)}</span>
+                    <span
+                      className="appearance-choice-dot"
+                      aria-hidden="true"
+                    />
+                  </span>
                 </label>
               ))}
             </RadioGroup>
@@ -420,13 +467,21 @@ function SettingsPage() {
               </>
             )}
           </div>
-          <div className="settings-section jev-settings" hidden={activeSection !== "connections"}>
+          <div
+            className="settings-section jev-settings"
+            hidden={activeSection !== "connections"}
+          >
             <div className="model-heading">
               <h2>Smart Moments</h2>
               <Badge variant="outline">
                 {environment.jev.configured ? "Connected" : "Not connected"}
               </Badge>
             </div>
+            {environment.jev.error && (
+              <p role="alert" className="text-destructive">
+                {environment.jev.error}
+              </p>
+            )}
             {environment.jev.configured ? (
               <Button variant="outline" onClick={disconnectJev}>
                 Disconnect
@@ -454,7 +509,11 @@ function SettingsPage() {
           </div>
         </div>
         <div>
-          <div id="settings-models" className="settings-section" hidden={activeSection !== "models"}>
+          <div
+            id="settings-models"
+            className="settings-section"
+            hidden={activeSection !== "models"}
+          >
             <div className="model-heading">
               <h2>Models</h2>
               <span className="count">
@@ -514,7 +573,11 @@ function SettingsPage() {
               )}
             </div>
           </div>
-          <section id="settings-diagnostics" className="settings-section" hidden={activeSection !== "diagnostics"}>
+          <section
+            id="settings-diagnostics"
+            className="settings-section"
+            hidden={activeSection !== "diagnostics"}
+          >
             <h2>Diagnostics</h2>
             <dl>
               <dt>Studio version</dt>

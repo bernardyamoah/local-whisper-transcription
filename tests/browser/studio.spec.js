@@ -70,10 +70,13 @@ test("record a meeting and keep its live transcript", async ({ page }) => {
   const recordingStage = page.locator('.capture-stage[data-recording="true"]');
   await expect
     .poll(async () => (await recordingStage.boundingBox())?.height)
-    .toBeLessThan(700);
+    .toBeLessThan(950);
   await expect(
     page.getByText("We should ship the live meeting view."),
   ).toBeVisible();
+  await expect
+    .poll(async () => (await page.locator(".live-transcript-feed").boundingBox())?.height)
+    .toBeGreaterThanOrEqual(260);
   await expect(page.locator(".capture-orb")).toBeVisible();
   await expect.poll(async () => {
     const orb = await page.locator(".capture-orb").boundingBox();

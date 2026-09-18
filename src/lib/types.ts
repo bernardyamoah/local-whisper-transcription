@@ -35,7 +35,7 @@ export type Environment = {
     locales: string[];
   };
   deepgram: { configured: boolean };
-  jev: { configured: boolean; enabled: boolean };
+  jev: { configured: boolean; enabled: boolean; error?: string | null };
   meeting_templates: MeetingTemplate[];
 };
 

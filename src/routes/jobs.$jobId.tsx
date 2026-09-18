@@ -275,7 +275,6 @@ function Editor({ initial }: { initial: Job }) {
   const [bookmarkKind, setBookmarkKind] = useState(
     initial.template.bookmarks[0] || "Key point",
   );
-  const [smartWatching, setSmartWatching] = useState(environment.jev.enabled);
   const media = useRef<HTMLMediaElement>(null);
   const transcript = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -306,23 +305,21 @@ function Editor({ initial }: { initial: Job }) {
 
   useEffect(() => {
     if (!environment.jev.enabled) return;
-    let attempts = 0;
+    let cancelled = false;
     const refresh = async () => {
-      attempts += 1;
       try {
         const value = await api<Job>(`/jobs/${initial.id}`);
-        setBookmarks(value.bookmarks || []);
+        if (!cancelled) setBookmarks(value.bookmarks || []);
       } catch {
-        setSmartWatching(false);
-      }
-      if (attempts >= 30) {
-        window.clearInterval(timer);
-        setSmartWatching(false);
+        // Keep polling after temporary connection failures.
       }
     };
-    const timer = window.setInterval(() => void refresh(), 1000);
+    const timer = window.setInterval(() => void refresh(), 3000);
     void refresh();
-    return () => window.clearInterval(timer);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
   }, [environment.jev.enabled, initial.id]);
 
   const matches = useMemo(
@@ -875,12 +872,17 @@ function Editor({ initial }: { initial: Job }) {
         )}
       </div>
       <section className="bookmark-panel" aria-labelledby="bookmarks-title">
+        {environment.jev.error && (
+          <p role="alert" className="text-destructive">
+            {environment.jev.error}
+          </p>
+        )}
         <div className="bookmark-panel-heading">
           <div>
             <h2 id="bookmarks-title">Bookmarks</h2>
             <p>
               {initial.template.name}
-              {smartWatching ? " · Finding moments…" : ""}
+              {environment.jev.enabled ? " · Smart Moments on" : ""}
             </p>
           </div>
           <div className="bookmark-create">
