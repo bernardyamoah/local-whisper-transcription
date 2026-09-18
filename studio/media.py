@@ -32,6 +32,7 @@ def probe(path, max_hours):
         )
         data = json.loads(result.stdout)
         audio = next((s for s in data.get("streams", []) if s.get("codec_type") == "audio"), None)
+        video = next((s for s in data.get("streams", []) if s.get("codec_type") == "video"), None)
         if audio is None:
             raise MediaError("This recording has no readable audio track.")
         duration = float(data.get("format", {}).get("duration", audio.get("duration", 0)))
@@ -41,6 +42,7 @@ def probe(path, max_hours):
             "duration": duration,
             "container": data["format"].get("format_name", "unknown"),
             "codec": audio.get("codec_name", "unknown"),
+            "has_video": video is not None,
         }
     except (subprocess.SubprocessError, ValueError, KeyError) as error:
         if isinstance(error, MediaError):

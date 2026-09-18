@@ -4,7 +4,7 @@ Initial implementation: **0.1.0**, verified locally on September 17, 2026 (macOS
 
 ## Completed checks
 
-- **31 backend tests passed.** Real SQLite persistence, actual FFmpeg validation of all ten required containers (MP3, WAV, M4A, AAC, FLAC, OGG, MP4, MOV, MKV, WebM), corrupt/empty/playlist rejection, a deterministic full pipeline, cancellation/retry, restart recovery, retention, retained-source reuse, transactional editing, edit conflicts, original-text preservation, export normalization, ranged playback, managed-path confinement, model catalog/install/delete behavior, active-model protection, settings validation, CSRF/host checks, and signed Access JWT rejection cases.
+- Backend tests cover real SQLite persistence, FFmpeg validation, corrupt/empty/playlist rejection, the full transcription pipeline, cancellation/retry, restart recovery, retention, transactional editing, export normalization, ranged playback, model management, settings validation, and the loopback-only request boundary.
 - **6 Chromium browser tests passed.** Import → complete → edit → reload → search → copy → all three downloads → delete; model search, install progress, reload recovery, verification, and deletion; 1440px, 768px, and 390px layouts without horizontal overflow; axe accessibility scans on upload/settings/editor; keyboard file selection; cancel/retry; undo; save-on-navigation; reduced-motion behavior. No JavaScript exceptions in the main flow.
 - **1 optional real-inference test passed.** A locally generated spoken sentence was normalized with FFmpeg, transcribed with the locally downloaded `tiny` model on CPU, and produced nonempty timestamped English segments and MP3 playback. This test does not establish production accuracy or long-recording performance.
 - Python lint/format, TypeScript checks, and the TanStack Start production build passed. Browser screenshots were inspected at desktop and mobile widths. Bundled fonts avoid runtime font-service requests.
@@ -17,8 +17,7 @@ The ordinary pytest run skips the optional real-engine test unless existing mode
 
 These are requirements for declaring **PRD version 1.0 ready**, rather than claims made by this initial repository:
 
-- Provision the owner-only Access policy, remotely managed Tunnel, DNS route, and connector supervision in the owner's Cloudflare account.
-- Verify the actual hostname with owner, unrelated, and unauthenticated identities; stop the connector and verify failure behavior.
+- Verify the public website, R2-backed installer download, and custom domain after every release.
 - Measure memory and elapsed time on a one-hour representative speech recording and compare quality presets.
 - Evaluate accented, mixed-language, noisy, musical, and silent recordings; no automatic accuracy guarantee is made.
 - Verify CUDA on supported NVIDIA hardware if it will be used. Apple Metal acceleration is not supported by the selected adapter.
@@ -29,6 +28,6 @@ The GitHub workflow repeats backend, format, and browser checks on Ubuntu. Its r
 
 ## Implementation limits
 
-Remote upload body size is constrained by the Cloudflare plan. Uploads restart rather than resume. Downloads use repository file sizes and transfer callbacks to report bytes and percentage, followed by a separate verification state. Export overlap correction preserves ordering by moving the next cue forward; editor timestamps retain the original engine values. Search highlights matching segments, and next/previous navigation moves between matching segments. The session Undo button restores the last completed segment edit; normal typing undo is also available in the textarea.
+Local uploads restart rather than resume. Model downloads use repository file sizes and transfer callbacks to report bytes and percentage, followed by a separate verification state. Export overlap correction preserves ordering by moving the next cue forward; editor timestamps retain the original engine values. Search highlights matching segments, and next/previous navigation moves between matching segments. The session Undo button restores the last completed segment edit; normal typing undo is also available in the textarea.
 
 A source-only retained recording remains manageable in the Library. Original generated segment text is kept, but a side-by-side original comparison UI is deferred. Safe diagnostics intentionally omit detailed runtime exception strings because those can include private paths or source names. Long audio is written to files, but the underlying inference library can decode normalized audio into memory.

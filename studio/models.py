@@ -7,28 +7,17 @@ import threading
 import time
 from pathlib import Path
 
-REQUIRED = ("model.bin", "config.json", "tokenizer.json")
-PATTERNS = ("config.json", "preprocessor_config.json", "model.bin", "tokenizer.json", "vocabulary.*")
+REQUIRED = ("config.json", "weights.npz")
+PATTERNS = ("config.json", "weights.npz")
 MODEL_INFO = {
-    "tiny": ("Tiny", "~75 MB"),
-    "tiny.en": ("Tiny · English", "~75 MB"),
-    "base": ("Base", "~150 MB"),
-    "base.en": ("Base · English", "~150 MB"),
     "small": ("Small", "~500 MB"),
-    "small.en": ("Small · English", "~500 MB"),
-    "medium": ("Medium", "~1.5 GB"),
-    "medium.en": ("Medium · English", "~1.5 GB"),
-    "large-v1": ("Large v1", "~3 GB"),
-    "large-v2": ("Large v2", "~3 GB"),
-    "large-v3": ("Large v3", "~3 GB"),
-    "large": ("Large", "~3 GB"),
-    "large-v3-turbo": ("Large v3 Turbo", "~1.6 GB"),
     "turbo": ("Turbo", "~1.6 GB"),
-    "distil-small.en": ("Distil Small · English", "~350 MB"),
-    "distil-medium.en": ("Distil Medium · English", "~750 MB"),
-    "distil-large-v2": ("Distil Large v2 · English", "~1.5 GB"),
-    "distil-large-v3": ("Distil Large v3 · English", "~1.5 GB"),
-    "distil-large-v3.5": ("Distil Large v3.5 · English", "~1.5 GB"),
+    "large-v3": ("Large v3", "~3.1 GB"),
+}
+MODEL_REPOSITORIES = {
+    "small": "mlx-community/whisper-small-mlx",
+    "turbo": "mlx-community/whisper-turbo",
+    "large-v3": "mlx-community/whisper-large-v3-mlx",
 }
 
 
@@ -39,8 +28,9 @@ def write_progress(path, phase, downloaded=0, total=None):
 
 
 class Models:
-    def __init__(self, store):
+    def __init__(self, store, command=None):
         self.store = store
+        self.command = command or [sys.executable, "-m", "studio.models"]
         self.processes = {}
         self.lock = threading.Lock()
 
@@ -95,7 +85,7 @@ class Models:
             path.mkdir(parents=True, exist_ok=True)
             write_progress(path, "connecting")
             self.processes[model] = subprocess.Popen(
-                [sys.executable, "-m", "studio.models", model, str(path)],
+                [*self.command, model, str(path)],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 start_new_session=True,
@@ -122,17 +112,16 @@ class Models:
 
 
 def download(model, target):
-    from faster_whisper import WhisperModel
-    from faster_whisper.utils import _MODELS
     from huggingface_hub import HfApi, hf_hub_download
     from huggingface_hub.utils import tqdm
+    from mlx_whisper.load_models import load_model
 
     target = Path(target)
     target.mkdir(parents=True, exist_ok=True)
     completed, total = 0, None
     write_progress(target, "connecting")
     try:
-        info = HfApi().model_info(_MODELS[model], files_metadata=True)
+        info = HfApi().model_info(MODEL_REPOSITORIES[model], files_metadata=True)
         files = [f for f in info.siblings if any(fnmatch.fnmatch(f.rfilename, p) for p in PATTERNS)]
         if not all(any(f.rfilename == required for f in files) for required in REQUIRED):
             raise ValueError("Model repository is missing required files")
@@ -159,7 +148,7 @@ def download(model, target):
             completed += file.size
             write_progress(target, "downloading", completed, total)
         write_progress(target, "verifying", completed, total)
-        WhisperModel(str(target), device="cpu", compute_type="int8", local_files_only=True)
+        load_model(str(target))
         (target / ".ready").write_text(json.dumps({"model": model}))
         write_progress(target, "ready", completed, total)
     except Exception:

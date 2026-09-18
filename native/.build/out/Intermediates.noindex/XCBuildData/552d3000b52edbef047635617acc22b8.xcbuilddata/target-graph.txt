@@ -1,0 +1,4 @@
+Target dependency graph (2 targets)
+Target 'AllExcludingTests' in project 'Aggregate'
+➜ Explicit dependency on target 'whisper-studio-audio-bridge-product' in project 'WhisperStudioAudioBridge'
+Target 'whisper-studio-audio-bridge-product' in project 'WhisperStudioAudioBridge' (no dependencies)

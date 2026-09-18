@@ -37,18 +37,17 @@ Stop the app, preserve the existing directory separately, then extract the backu
 ## Common problems
 
 - **FFmpeg unavailable:** Install `ffmpeg` and ensure both `ffmpeg` and `ffprobe` appear in the application's PATH. Service environments often have a different PATH from your terminal.
-- **Model unavailable:** Open Settings and explicitly install the required preset. Incomplete downloads are not considered installed. Installation also verifies that faster-whisper can load the model. Downloads may use additional memory for verification.
+- **Model unavailable:** Open Settings and explicitly install the required preset. Incomplete downloads are not considered installed. Installation also verifies that MLX Whisper can load the model. Downloads may use additional unified memory for verification.
 - **Download interrupted:** Restart the app and click Install again. The underlying Hugging Face download cache can reuse completed files. No retry begins without your action.
 - **Slow processing or memory pressure:** Choose Fast, close other heavy applications, and leave the host awake. Apple Silicon uses CPU in this version. CUDA only works with supported NVIDIA dependencies.
-- **CUDA unavailable:** Switch hardware to Auto or CPU. Preset and language are fixed for a job; import again to use a different preset.
+- **MLX unavailable:** Run the application on an Apple Silicon Mac and reinstall its locked dependencies. Preset and language are fixed for a job; import again to use a different preset.
 - **Failure during inference:** Original media stays available. Check free space, model installation, and FFmpeg before retrying. Safe diagnostics omit transcript text and filenames. Logs intentionally record error categories only.
 - **Autosave conflict:** Another tab changed the transcript. Copy unsaved text to a safe local location, reload, and reapply the edit. The application preserves the pending text and refuses in-app navigation while saving fails.
 - **Playback missing:** Retention may have removed the original and derivative after success. The transcript and exports remain. Deleting a transcript while retaining its original puts that recording in the Library's retained-recordings list.
 - **Partial deletion:** File deletion happens before database removal. A filesystem failure leaves the database item visible and reports an error so deletion can be retried. Some selected files may already have been removed. No secure-erasure guarantee is made for SSDs or backups.
 - **Database/directory unavailable:** Restore permissions or disk access. If startup cannot open the database, the server fails to start rather than creating a replacement elsewhere. Preserve the directory and restore from a known backup if damaged.
-- **Remote upload 413:** Use `http://127.0.0.1:8765` on the host for recordings above the Cloudflare request-size limit.
-- **Domain unavailable:** Check host power, internet connectivity, application service, and connector service. Existing pages report connection errors; new visits may receive Cloudflare's offline-origin page.
-- **403 at the domain:** Reauthenticate, verify Access audience/team/email configuration, HTTPS forwarding, and public Host preservation. Never solve this by bypassing authentication.
+- **App will not open:** Quit any existing Whisper Studio process and launch the installed app again. The local service binds only to loopback and does not depend on the public website.
+- **Website unavailable:** The marketing site and installer delivery are independent of the installed app. Check the Cloudflare Worker and R2 object without changing the local data directory.
 
 ## Upgrade
 

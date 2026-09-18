@@ -1,3 +1,7 @@
+import sys
+import time
+from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -15,6 +19,7 @@ def test_client_bootstrap_respects_strict_csp(client):
         assert "src=" in attributes
     policy = response.headers["content-security-policy"]
     assert "script-src 'self'" in policy
+    assert "style-src 'self' 'sha256-" in policy
     assert "unsafe-inline" not in policy
 
 
@@ -34,9 +39,33 @@ def test_full_pipeline_edit_export_playback_delete(client, audio, app):
     )
     assert response.json()["revision"] == 1
     detail = client.get("/api/jobs/" + job["id"]).json()
+    assert detail["template"]["id"] == "general"
+    bookmark = client.post(
+        f"/api/jobs/{job['id']}/bookmarks",
+        json={"at": 0.5, "kind": "Decision"},
+    )
+    assert bookmark.status_code == 201
+    assert bookmark.json()["kind"] == "Decision"
+    assert client.post(
+        f"/api/jobs/{job['id']}/bookmarks",
+        json={"at": 0.5, "kind": "Blocker"},
+    ).status_code == 400
+    bookmarked = client.get("/api/jobs/" + job["id"]).json()
+    assert bookmarked["bookmarks"][0]["at"] == 0.5
+    assert client.delete(
+        f"/api/jobs/{job['id']}/bookmarks/{bookmark.json()['id']}"
+    ).status_code == 200
     assert detail["segments"][0]["text"] == "Corrected words."
     assert detail["segments"][0]["original"] == "Every voice has a story."
     assert detail["segments"][0]["start"] == segment["start"]
+    assert detail["notes"] == {
+        "summary": "A short conversation about capturing ideas and giving every voice room.",
+        "chapters": [
+            {"start": 0, "title": "The story behind a voice"},
+            {"start": 1, "title": "Making space for ideas"},
+        ],
+        "topics": ["Voice notes", "Creative ideas"],
+    }
     conflict = client.patch("/api/jobs/" + job["id"], json={"revision": 0, "segments": []})
     assert conflict.status_code == 409
     for kind in ["txt", "srt", "vtt"]:
@@ -56,6 +85,30 @@ def test_full_pipeline_edit_export_playback_delete(client, audio, app):
     assert client.get("/api/jobs/" + job["id"]).status_code == 404
     assert not list((app.state.store.root / "sources").iterdir())
     assert not list((app.state.store.root / "playback").iterdir())
+
+
+def test_video_import_creates_video_playback(client, video, app):
+    media = client.post("/api/media", content=video, headers={"X-Filename": "interview.mp4"})
+    assert media.status_code == 201
+    assert media.json()["has_video"] is True
+    created = client.post(
+        "/api/jobs",
+        json={"media_id": media.json()["id"], "preset": "fast", "title": "Video interview"},
+    )
+    assert created.status_code == 201
+    job = wait_state(client, created.json()["id"])
+    assert job["has_video"] is True
+    assert job["playback_kind"] == "video"
+    assert job["playback_available"] is True
+    assert app.state.store.path("playback", job["id"], ".mp4").is_file()
+    response = client.get(f"/api/jobs/{job['id']}/video", headers={"Range": "bytes=0-31"})
+    assert response.status_code == 206
+    assert response.headers["content-type"] == "video/mp4"
+    assert len(response.content) == 32
+    assert client.get(f"/api/jobs/{job['id']}/audio").status_code == 404
+    deleted = client.request("DELETE", f"/api/jobs/{job['id']}", json={"scope": "all", "confirm": True})
+    assert deleted.status_code == 200
+    assert not app.state.store.path("playback", job["id"], ".mp4").exists()
 
 
 def test_cancel_and_retry(client, audio, app):
@@ -131,7 +184,7 @@ def test_restart_recovery_and_state_machine(tmp_path, audio):
     app = create_app(tmp_path, worker=False)
     with TestClient(app, headers={"X-Studio-Request": "1"}) as client:
         media = import_audio(client, audio)
-        job = app.state.jobs.create(media["id"], "Test", "auto", "fast", "base")
+        job = app.state.jobs.create(media["id"], "Test", "auto", "fast", "small")
         with app.state.store.connect() as db:
             app.state.jobs.transition(db, job["id"], "preparing")
         with pytest.raises(ValueError):
@@ -150,8 +203,6 @@ def test_host_csrf_boundary(client):
             "/",
             headers={
                 "Host": "transcribe.bernardyamoah.com",
-                "X-Forwarded-Proto": "https",
-                "Cf-Access-Jwt-Assertion": "forged",
             },
         ).status_code
         == 403
@@ -165,8 +216,9 @@ def test_settings_validate(client):
     for payload in [
         {"language": "made-up"},
         {"max_duration_hours": 0},
-        {"hardware": "mps"},
+        {"hardware": "cuda"},
         {"preset": "unknown"},
+        {"appearance": "neon"},
     ]:
         assert client.put("/api/settings", json=payload).status_code == 422
     assert client.post("/api/models/fast", json={"confirm": False}).status_code == 422
@@ -175,41 +227,41 @@ def test_settings_validate(client):
 def test_model_catalog_and_delete_api(client, app):
     environment = client.get("/api/environment").json()
     models = {model["id"]: model for model in environment["models"]}
-    assert models["base"]["installed"]
-    assert "tiny.en" in models
+    assert models["small"]["installed"]
+    assert "turbo" in models
     assert client.post("/api/models/not-a-model", json={"confirm": True}).status_code == 404
-    response = client.request("DELETE", "/api/models/base", json={"confirm": True})
-    assert response.json() == {"deleted": True, "model": "base"}
-    assert not app.state.models.path("base").exists()
+    response = client.request("DELETE", "/api/models/small", json={"confirm": True})
+    assert response.json() == {"deleted": True, "model": "small"}
+    assert not app.state.models.path("small").exists()
     assert not client.get("/api/environment").json()["presets"]["fast"]["installed"]
 
 
 def test_installed_catalog_model_can_run_job(client, app, audio):
-    path = app.state.models.path("tiny.en")
+    path = app.state.models.path("turbo")
     path.mkdir()
-    for name in [".ready", "model.bin", "config.json", "tokenizer.json"]:
+    for name in [".ready", "config.json", "weights.npz"]:
         (path / name).write_text("model")
     media = import_audio(client, audio)
     response = client.post(
         "/api/jobs",
-        json={"media_id": media["id"], "preset": "fast", "model": "tiny.en"},
+        json={"media_id": media["id"], "preset": "fast", "model": "turbo"},
     )
     assert response.status_code == 201
-    assert response.json()["model"] == "tiny.en"
+    assert response.json()["model"] == "turbo"
     assert wait_state(client, response.json()["id"])["state"] == "completed"
 
 
 def test_active_job_model_cannot_be_deleted(tmp_path, audio):
     app = create_app(tmp_path, worker=False)
-    path = app.state.models.path("base")
+    path = app.state.models.path("small")
     path.mkdir()
-    for name in [".ready", "model.bin", "config.json", "tokenizer.json"]:
+    for name in [".ready", "config.json", "weights.npz"]:
         (path / name).write_text("model")
     with TestClient(app, headers={"X-Studio-Request": "1"}) as client:
         media = import_audio(client, audio)
         created = client.post("/api/jobs", json={"media_id": media["id"], "preset": "fast"})
         assert created.status_code == 201
-        response = client.request("DELETE", "/api/models/base", json={"confirm": True})
+        response = client.request("DELETE", "/api/models/small", json={"confirm": True})
         assert response.status_code == 409
         assert path.exists()
 
@@ -222,6 +274,23 @@ def test_edit_transaction_rolls_back(client, audio):
     assert client.get("/api/jobs/" + job["id"]).json()["segments"][0]["text"] == "Every voice has a story."
 
 
+def test_named_speaker_and_full_text_library_search(client, audio, app):
+    job = wait_state(client, new_job(client, audio)["id"])
+    with app.state.store.connect() as db:
+        db.execute("UPDATE segments SET speaker=0 WHERE job_id=?", (job["id"],))
+    response = client.patch(
+        f"/api/jobs/{job['id']}",
+        json={"revision": 0, "speakers": [{"speaker": 0, "name": "Bernard"}]},
+    )
+    assert response.status_code == 200
+    detail = client.get(f"/api/jobs/{job['id']}").json()
+    assert detail["segments"][0]["speaker_name"] == "Bernard"
+    assert client.get("/api/jobs?q=voice").json()["total"] == 1
+    assert client.get("/api/jobs?q=Bernard").json()["total"] == 1
+    exported = client.get(f"/api/jobs/{job['id']}/export/txt").text
+    assert "Bernard: Every voice has a story." in exported
+
+
 def test_export_cue_normalization():
     segments = [{"start": 1, "end": 2, "text": "A < B"}, {"start": 1.5, "end": 1.9, "text": "Overlap"}]
     text = render(segments, "srt")
@@ -229,6 +298,7 @@ def test_export_cue_normalization():
     assert render(segments, "vtt").startswith("WEBVTT\n\n")
     assert "A &lt; B" in render(segments, "vtt")
     assert "[00:00:01.000]" in render(segments, "txt", True)
+    assert "Speaker 2: A < B" in render([{**segments[0], "speaker": 1}], "txt")
     assert timestamp(3600.001) == "01:00:00.001"
     assert filename("../../:") == "transcript"
     with pytest.raises(ValueError):
@@ -247,45 +317,75 @@ def test_paths_confined(tmp_path):
         store.path("sources", "symlink")
 
 
-def test_signed_access_jwt(monkeypatch):
-    import time
+def test_native_recording_becomes_imported_media(tmp_path):
+    command = [sys.executable, str(Path(__file__).parent / "fake_native_bridge.py")]
+    app = create_app(tmp_path, worker=False, native_command=command)
+    with TestClient(app, headers={"X-Studio-Request": "1"}) as client:
+        environment = client.get("/api/environment").json()
+        assert environment["native"]["recording"] is True
+        started = client.post(
+            "/api/recordings",
+            json={"name": "Weekly planning", "language": "en", "template": "standup"},
+        )
+        assert started.status_code == 201
+        assert started.json()["state"] == "recording"
+        assert started.json()["template"] == "standup"
+        live = []
+        for _ in range(30):
+            live = client.get("/api/recordings").json()["live_transcript"]
+            if live:
+                break
+            time.sleep(0.02)
+        assert live[0]["text"] == "We should ship the live meeting view."
+        bookmark = client.post("/api/recordings/bookmarks", json={"kind": "Blocker"})
+        assert bookmark.status_code == 201
+        assert bookmark.json()["at"] >= 0
+        assert client.post(
+            "/api/recordings/bookmarks", json={"kind": "Key point"}
+        ).status_code == 400
+        assert client.post("/api/recordings", json={"name": "Another"}).status_code == 409
+        stopped = client.post("/api/recordings/stop")
+        assert stopped.status_code == 201
+        assert stopped.json()["name"] == "Weekly planning"
+        assert stopped.json()["duration"] == 1
+        retained = client.get("/api/media").json()
+        assert retained[0]["id"] == stopped.json()["id"]
+        with app.state.store.connect() as db:
+            stored = db.execute(
+                "SELECT kind FROM bookmarks WHERE media_id=?", (stopped.json()["id"],)
+            ).fetchone()
+        assert stored["kind"] == "Blocker"
+        assert client.get("/api/recordings").json() == {"state": "idle"}
 
-    import jwt
-    from cryptography.hazmat.primitives.asymmetric import rsa
 
-    from studio.security import Boundary
+def test_deepgram_provider_does_not_require_local_model(tmp_path, audio):
+    class FakeDeepgram:
+        connected = True
 
-    monkeypatch.setenv("CF_ACCESS_TEAM_DOMAIN", "studio-test.cloudflareaccess.com")
-    monkeypatch.setenv("CF_ACCESS_AUDIENCE", "studio-audience")
-    monkeypatch.setenv("CF_ACCESS_EMAIL", "owner@example.com")
-    boundary = Boundary()
-    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        def configured(self):
+            return self.connected
 
-    class SigningKey:
-        pass
+        def key(self):
+            return "test-key"
 
-    public = SigningKey()
-    public.key = key.public_key()
-    monkeypatch.setattr(boundary.jwks, "get_signing_key_from_jwt", lambda token: public)
-    claims = {
-        "iss": "https://studio-test.cloudflareaccess.com",
-        "aud": "studio-audience",
-        "email": "owner@example.com",
-        "iat": int(time.time()),
-        "exp": int(time.time()) + 300,
-    }
-    assert boundary.validate(jwt.encode(claims, key, algorithm="RS256")) == "owner@example.com"
-    for changes in [
-        {"email": "someone@example.com"},
-        {"exp": 1},
-        {"aud": "wrong"},
-        {"iss": "https://evil.test"},
-    ]:
-        with pytest.raises((ValueError, jwt.PyJWTError)):
-            boundary.validate(jwt.encode(claims | changes, key, algorithm="RS256"))
-    wrong_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    with pytest.raises(jwt.PyJWTError):
-        boundary.validate(jwt.encode(claims, wrong_key, algorithm="RS256"))
+        def connect(self, key):
+            self.connected = True
+
+        def disconnect(self):
+            self.connected = False
+
+    command = [sys.executable, str(Path(__file__).parent / "fake_engine.py")]
+    app = create_app(tmp_path, command=command, deepgram=FakeDeepgram())
+    with TestClient(app, headers={"X-Studio-Request": "1"}) as client:
+        media = import_audio(client, audio)
+        created = client.post(
+            "/api/jobs",
+            json={"media_id": media["id"], "provider": "deepgram", "title": "Cloud meeting"},
+        )
+        assert created.status_code == 201
+        assert created.json()["provider"] == "deepgram"
+        completed = wait_state(client, created.json()["id"])
+        assert completed["state"] == "completed"
 
 
 def test_pipeline_failure_keeps_source(tmp_path, audio):
@@ -294,7 +394,7 @@ def test_pipeline_failure_keeps_source(tmp_path, audio):
     app = create_app(tmp_path, command=[sys.executable, "-c", "raise SystemExit(1)"])
     with TestClient(app, headers={"X-Studio-Request": "1"}) as client:
         media = import_audio(client, audio)
-        job = app.state.jobs.create(media["id"], "Failure test", "auto", "fast", "base")
+        job = app.state.jobs.create(media["id"], "Failure test", "auto", "fast", "small")
         failed = wait_state(client, job["id"], ("failed",))
         assert failed["source_available"]
         assert failed["error"]

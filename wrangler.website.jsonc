@@ -1,0 +1,24 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "whisper-studio-marketing",
+  "main": "worker/website.js",
+  "compatibility_date": "2026-09-17",
+  "workers_dev": true,
+  "routes": [
+    {
+      "pattern": "transcribe.bernardyamoah.com",
+      "custom_domain": true
+    }
+  ],
+  "assets": {
+    "directory": "./dist/website",
+    "binding": "ASSETS",
+    "not_found_handling": "404-page"
+  },
+  "r2_buckets": [
+    {
+      "binding": "DOWNLOADS",
+      "bucket_name": "whisper-studio-releases"
+    }
+  ]
+}

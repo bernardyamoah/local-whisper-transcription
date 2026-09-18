@@ -1,0 +1,5 @@
+---
+triple:          'arm64-apple-darwin'
+binary-path:     '/Users/bernard/Documents/GitHub/local-whisper-transcription/native/.build/out/Products/Release/whisper-studio-audio-bridge'
+relocations:     []
+...

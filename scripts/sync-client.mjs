@@ -19,3 +19,7 @@ const externalShell = cleanShell.replace(
 );
 await Promise.all(bootstrapWrites);
 await writeFile("studio/static/index.html", externalShell);
+
+await import("./build-website.mjs");
+await rm("studio/static/website", { recursive: true, force: true });
+await cp("dist/website", "studio/static/website", { recursive: true });

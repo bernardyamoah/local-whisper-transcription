@@ -29,14 +29,59 @@ export type Environment = {
     { model: string; memory: string; installed: boolean }
   >;
   models: Model[];
+  native: {
+    recording: boolean;
+    speech_analyzer: boolean;
+    locales: string[];
+  };
+  deepgram: { configured: boolean };
+  meeting_templates: MeetingTemplate[];
+};
+
+export type MeetingTemplate = {
+  id: "general" | "standup" | "interview" | "customer" | "lecture";
+  name: string;
+  description: string;
+  bookmarks: string[];
+};
+
+export type LiveTranscript = {
+  source: string;
+  start: number;
+  end: number;
+  text: string;
+  final: boolean;
+};
+
+export type Bookmark = {
+  id: string;
+  at: number;
+  kind: string;
+  note: string;
+  created: number;
+};
+
+export type RecordingStatus = {
+  state: "idle" | "recording" | "failed";
+  id?: string;
+  name?: string;
+  started?: number;
+  elapsed?: number;
+  template?: MeetingTemplate["id"];
+  live_transcript?: LiveTranscript[];
+  live_error?: string | null;
+  bookmarks?: Bookmark[];
 };
 
 export type Settings = {
   language: string;
   preset: "fast" | "balanced" | "accurate";
   retain_source: boolean;
+  onboarding_completed: boolean;
   max_duration_hours: number;
-  hardware: "auto" | "cpu" | "cuda";
+  hardware: "auto" | "apple";
+  transcription_provider: "local" | "deepgram";
+  appearance: "light" | "dark" | "system";
 };
 
 export type Media = {
@@ -47,7 +92,27 @@ export type Media = {
   codec: string;
 };
 
-export type Segment = { id: number; start: number; end: number; text: string };
+export type Segment = {
+  id: number;
+  start: number;
+  end: number;
+  text: string;
+  speaker?: number | null;
+  speaker_name?: string | null;
+  confidence?: number | null;
+  words?: Array<{
+    word: string;
+    start: number;
+    end: number;
+    confidence?: number;
+  }>;
+};
+
+export type MeetingNotes = {
+  summary: string;
+  chapters: Array<{ start: number; title: string }>;
+  topics: string[];
+};
 
 export type Job = {
   id: string;
@@ -58,6 +123,7 @@ export type Job = {
   state: string;
   progress: number;
   backend?: string;
+  provider: "local" | "deepgram";
   error?: string;
   created: number;
   started?: number;
@@ -67,5 +133,10 @@ export type Job = {
   language: string;
   source_available: boolean;
   playback_available: boolean;
+  playback_kind: "audio" | "video";
+  has_video: boolean;
   segments: Segment[];
+  notes?: MeetingNotes;
+  template: MeetingTemplate;
+  bookmarks: Bookmark[];
 };

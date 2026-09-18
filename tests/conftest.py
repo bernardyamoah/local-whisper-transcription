@@ -1,4 +1,5 @@
 import io
+import subprocess
 import sys
 import wave
 from pathlib import Path
@@ -21,11 +22,43 @@ def audio():
 
 
 @pytest.fixture
+def video(tmp_path):
+    path = tmp_path / "clip.mp4"
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-nostdin",
+            "-v",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=#26352c:s=640x360:d=2",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=440:duration=2",
+            "-shortest",
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            "-c:a",
+            "aac",
+            "-y",
+            str(path),
+        ],
+        check=True,
+    )
+    return path.read_bytes()
+
+
+@pytest.fixture
 def app(tmp_path):
     app = create_app(tmp_path, command=[sys.executable, str(Path(__file__).parent / "fake_engine.py")])
-    path = app.state.store.path("models", "base")
+    path = app.state.store.path("models", "small")
     path.mkdir()
-    for file in [".ready", "model.bin", "config.json", "tokenizer.json"]:
+    for file in [".ready", "config.json", "weights.npz"]:
         (path / file).write_text("test")
     return app
 

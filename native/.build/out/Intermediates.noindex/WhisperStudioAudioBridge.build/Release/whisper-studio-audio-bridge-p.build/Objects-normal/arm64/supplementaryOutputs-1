@@ -1,0 +1,11 @@
+{
+  "/Users/bernard/Documents/GitHub/local-whisper-transcription/native/Sources/AudioBridge/AppleTranscriber.swift" : {
+    "abi-baseline-json" : "/Users/bernard/Documents/GitHub/local-whisper-transcription/native/.build/out/Intermediates.noindex/WhisperStudioAudioBridge.build/Release/whisper-studio-audio-bridge-p.build/Objects-normal/arm64/AudioBridge.abi.json",
+    "const-values" : "/Users/bernard/Documents/GitHub/local-whisper-transcription/native/.build/out/Intermediates.noindex/WhisperStudioAudioBridge.build/Release/whisper-studio-audio-bridge-p.build/Objects-normal/arm64/whisper-studio-audio-bridge-primary.swiftconstvalues",
+    "dependencies" : "/Users/bernard/Documents/GitHub/local-whisper-transcription/native/.build/out/Intermediates.noindex/WhisperStudioAudioBridge.build/Release/whisper-studio-audio-bridge-p.build/Objects-normal/arm64/whisper-studio-audio-bridge-primary.d",
+    "diagnostics" : "/Users/bernard/Documents/GitHub/local-whisper-transcription/native/.build/out/Intermediates.noindex/WhisperStudioAudioBridge.build/Release/whisper-studio-audio-bridge-p.build/Objects-normal/arm64/whisper-studio-audio-bridge-primary.dia",
+    "swiftdoc" : "/Users/bernard/Documents/GitHub/local-whisper-transcription/native/.build/out/Intermediates.noindex/WhisperStudioAudioBridge.build/Release/whisper-studio-audio-bridge-p.build/Objects-normal/arm64/AudioBridge.swiftdoc",
+    "swiftmodule" : "/Users/bernard/Documents/GitHub/local-whisper-transcription/native/.build/out/Intermediates.noindex/WhisperStudioAudioBridge.build/Release/whisper-studio-audio-bridge-p.build/Objects-normal/arm64/AudioBridge.swiftmodule",
+    "swiftsourceinfo" : "/Users/bernard/Documents/GitHub/local-whisper-transcription/native/.build/out/Intermediates.noindex/WhisperStudioAudioBridge.build/Release/whisper-studio-audio-bridge-p.build/Objects-normal/arm64/AudioBridge.swiftsourceinfo"
+  }
+}

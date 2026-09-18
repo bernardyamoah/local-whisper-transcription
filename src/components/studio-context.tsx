@@ -1,5 +1,4 @@
 import { useNavigate } from "@tanstack/react-router";
-import { sileo } from "sileo";
 import {
   createContext,
   useCallback,
@@ -10,6 +9,9 @@ import {
   type ReactNode,
 } from "react";
 import { api } from "../lib/api";
+import { applyAppearance } from "../lib/appearance";
+import { showNotice, takeQueuedNotice, type NoticeInput } from "../lib/notices";
+import { checkModelDownloads } from "../lib/system-notifications";
 import type { Environment, Settings } from "../lib/types";
 
 type StudioState = {
@@ -17,7 +19,7 @@ type StudioState = {
   settings: Settings;
   setSettings: (settings: Settings) => void;
   refreshEnvironment: () => Promise<Environment>;
-  notice: (message: string, error?: boolean) => void;
+  notice: (message: NoticeInput, error?: boolean) => void;
 };
 
 const StudioContext = createContext<StudioState | null>(null);
@@ -27,18 +29,36 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<Settings>();
   const refreshEnvironment = useCallback(async () => {
     const value = await api<Environment>("/environment");
+    checkModelDownloads(value.models).forEach((completed) =>
+      showNotice(completed),
+    );
     setEnvironment(value);
     return value;
   }, []);
-  const notice = useCallback((value: string, isError = false) => {
-    if (!value) return sileo.clear();
-    (isError ? sileo.error : sileo.success)({ title: value });
-  }, []);
+  const notice = useCallback(showNotice, []);
   useEffect(() => {
+    const queued = takeQueuedNotice();
+    if (queued) notice(queued);
     Promise.all([refreshEnvironment(), api<Settings>("/settings")])
       .then(([, value]) => setSettings(value))
       .catch((reason: Error) => notice(reason.message, true));
   }, [notice, refreshEnvironment]);
+  useEffect(() => {
+    if (!settings) return;
+    applyAppearance(settings.appearance);
+    if (settings.appearance !== "system") return;
+    const scheme = window.matchMedia("(prefers-color-scheme: dark)");
+    const update = () => applyAppearance("system");
+    scheme.addEventListener("change", update);
+    return () => scheme.removeEventListener("change", update);
+  }, [settings]);
+  useEffect(() => {
+    const timer = window.setInterval(
+      () => void refreshEnvironment().catch(() => undefined),
+      3000,
+    );
+    return () => window.clearInterval(timer);
+  }, [refreshEnvironment]);
   const value = useMemo(
     () =>
       environment && settings

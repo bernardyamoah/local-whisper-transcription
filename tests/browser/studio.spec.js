@@ -23,6 +23,78 @@ async function choose(page, selector, label) {
   await page.getByRole("option", { name: label, exact: true }).click();
 }
 
+async function expectDarkControl(locator) {
+  const colors = await locator.evaluate((element) => {
+    const style = getComputedStyle(element);
+    const channels = (value) =>
+      (value.match(/[\d.]+/g) || []).slice(0, 3).map(Number);
+    return {
+      background: channels(style.backgroundColor),
+      foreground: channels(style.color),
+    };
+  });
+  expect(Math.max(...colors.background)).toBeLessThan(100);
+  expect(Math.min(...colors.foreground)).toBeGreaterThan(180);
+}
+
+async function mockSystemNotifications(page) {
+  await page.addInitScript(() => {
+    window.systemNotifications = JSON.parse(
+      sessionStorage.getItem("test:system-notifications") || "[]",
+    );
+    class TestNotification {
+      static permission = "granted";
+      static requestPermission = async () => "granted";
+
+      constructor(title, options) {
+        window.systemNotifications.push({ title, body: options?.body || "" });
+        sessionStorage.setItem(
+          "test:system-notifications",
+          JSON.stringify(window.systemNotifications),
+        );
+      }
+    }
+    Object.defineProperty(window, "Notification", { value: TestNotification });
+  });
+}
+
+test("record a meeting and prepare it for transcription", async ({ page }) => {
+  await page.goto("/");
+  await expect(
+    page.getByRole("heading", { name: "New transcription" }),
+  ).toBeVisible({ timeout: 15000 });
+  await page.getByRole("button", { name: "Record meeting" }).click();
+  await expect(page.getByText("Recording", { exact: true })).toBeVisible();
+  await expect(page.getByText("00:00", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("We should ship the live meeting view."),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Decision", exact: true }).click();
+  await expect(page.getByText("1 bookmark", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Stop recording" }).click();
+  await expect(page.locator("#recording-title")).toHaveValue(
+    "Meeting recording",
+  );
+  await expect(
+    page.getByText("Recording ready", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Start transcription" }),
+  ).toBeEnabled();
+  await page.getByRole("button", { name: /^Options/ }).click();
+  await choose(page, "#provider", "Deepgram · connect first");
+  await expect(
+    page.getByRole("link", { name: "Connect Deepgram in Settings" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Start transcription" }),
+  ).toBeDisabled();
+  await choose(page, "#provider", "On this Mac");
+  await expect(
+    page.getByRole("button", { name: "Start transcription" }),
+  ).toBeEnabled();
+});
+
 test("import, process, edit, reload, search, copy, export and delete", async ({
   page,
   context,
@@ -30,10 +102,11 @@ test("import, process, edit, reload, search, copy, export and delete", async ({
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await mockSystemNotifications(page);
   await page.goto("/");
   await expect(
     page.getByRole("heading", { name: "New transcription" }),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 15000 });
   await expect(page.locator('link[rel="stylesheet"]')).toHaveAttribute(
     "href",
     /\/assets\/.*\.css$/,
@@ -42,27 +115,58 @@ test("import, process, edit, reload, search, copy, export and delete", async ({
     await page
       .getByRole("heading", { name: "New transcription" })
       .evaluate((element) => getComputedStyle(element).fontFamily),
-  ).toContain("Studio Serif");
+  ).toContain("SF Pro Text");
+  await page.getByRole("button", { name: /^Options/ }).click();
+  const language = page.getByRole("combobox", {
+    name: "Recording language",
+  });
+  await language.fill("French");
+  await page.getByRole("option", { name: "French", exact: true }).click();
+  await expect(language).toHaveValue("French");
   await page.locator("#file-input").setInputFiles({
     name: "A conversation.wav",
     mimeType: "audio/wav",
     buffer: wav(),
   });
   await expect(page.locator("#recording-title")).toHaveValue("A conversation");
+  await expect(
+    page.getByText("Recording ready", { exact: true }),
+  ).toBeVisible();
+
   await page.getByRole("button", { name: "Start transcription" }).click();
   await expect(page.locator("#transcript-title")).toBeVisible({
     timeout: 15000,
   });
+  await expect
+    .poll(() => page.evaluate(() => window.systemNotifications))
+    .toContainEqual({
+      title: "Transcription completed",
+      body: "A conversation is ready.",
+    });
+  await expect(
+    page.getByText("Transcript ready", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Notes" })).toBeVisible();
+  await expect(page.getByText("The story behind a voice")).toBeVisible();
+  await expect(page.getByLabel("Name for speaker 1")).toHaveValue("Speaker 1");
   const audio = page.locator("audio");
   const transport = page.locator('[data-slot="step-player-control"]');
+  await expect(page.locator('[data-slot="slider"]')).toHaveCount(2);
   await expect(
     page.getByRole("link", { name: "Back to library" }),
   ).toHaveAttribute("href", "/library");
   await expect(audio).not.toHaveAttribute("controls");
   await page.getByRole("slider", { name: "Seek recording" }).fill("0.5");
+  await page.getByRole("button", { name: /^Bookmark 00:/ }).click();
+  await expect(
+    page.locator(".bookmark-list").getByText("Key point", { exact: true }),
+  ).toBeVisible();
   await expect
     .poll(() => audio.evaluate((element) => element.currentTime))
     .toBeCloseTo(0.5, 1);
+  await expect(
+    page.locator('[data-segment][data-playback="current"]'),
+  ).toContainText("Every voice has a story.");
   await page.getByRole("slider", { name: "Volume" }).fill("0.5");
   await expect
     .poll(() => audio.evaluate((element) => element.volume))
@@ -83,6 +187,20 @@ test("import, process, edit, reload, search, copy, export and delete", async ({
   await expect
     .poll(() => audio.evaluate((element) => element.currentTime))
     .toBeGreaterThanOrEqual(1);
+  await expect(
+    page.locator('[data-segment][data-playback="past"]'),
+  ).toContainText("Every voice has a story.");
+  await expect(
+    page.locator('[data-segment][data-playback="current"]'),
+  ).toContainText("Give yours a little space.");
+  await page
+    .locator("[data-segment]")
+    .first()
+    .getByRole("button", { name: "Play from 00:00" })
+    .click();
+  await expect
+    .poll(() => audio.evaluate((element) => element.currentTime))
+    .toBeLessThan(0.9);
   await transport.click();
   const text = page.getByRole("textbox", { name: "Segment at 00:00" });
   await text.fill("A corrected thought, saved for later.");
@@ -95,10 +213,16 @@ test("import, process, edit, reload, search, copy, export and delete", async ({
   expect(await page.evaluate(() => navigator.clipboard.readText())).toContain(
     "A corrected thought",
   );
+  await expect(
+    page.getByText("Transcript copied", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("2 segments copied to the clipboard.", { exact: true }),
+  ).toBeVisible();
   for (const format of ["txt", "srt", "vtt"]) {
     await choose(page, "#export-format", format.toUpperCase());
     const download = page.waitForEvent("download");
-    await page.getByRole("button", { name: "Export" }).click();
+    await page.getByRole("button", { name: "Export", exact: true }).click();
     const file = await download;
     expect(file.suggestedFilename()).toBe(`A conversation.${format}`);
     const stream = await file.createReadStream();
@@ -106,6 +230,28 @@ test("import, process, edit, reload, search, copy, export and delete", async ({
     for await (const c of stream) chunks.push(c);
     expect(Buffer.concat(chunks).toString()).toContain("A corrected thought");
   }
+  await page.evaluate(() => {
+    window.nativeExports = [];
+    window.pywebview = {
+      api: {
+        save_export: async (name, content) => {
+          window.nativeExports.push({ name, content });
+          return `/Users/test/Downloads/${name}`;
+        },
+      },
+    };
+  });
+  await choose(page, "#export-format", "TXT");
+  await page.getByRole("button", { name: "Export", exact: true }).click();
+  await expect
+    .poll(() => page.evaluate(() => window.nativeExports))
+    .toContainEqual({
+      name: "A conversation.txt",
+      content: expect.stringContaining("A corrected thought"),
+    });
+  await expect(
+    page.getByText("Transcript exported", { exact: true }),
+  ).toBeVisible();
   await page.screenshot({
     path: "test-results/editor-desktop.png",
     fullPage: true,
@@ -121,6 +267,9 @@ test("import, process, edit, reload, search, copy, export and delete", async ({
     .click();
   await deleteControl.getByRole("button", { name: "Confirm delete" }).click();
   await expect(page.getByRole("heading", { name: "Library" })).toBeVisible();
+  await expect(
+    page.getByText("Transcript deleted", { exact: true }),
+  ).toBeVisible();
   expect(errors).toEqual([]);
 });
 
@@ -133,6 +282,25 @@ for (const width of [1440, 768, 390]) {
     await expect(
       page.getByRole("heading", { name: "New transcription" }),
     ).toBeVisible();
+    const sidebar = page.locator("#studio-sidebar");
+    await expect(sidebar).toBeVisible();
+    await page.getByRole("button", { name: "Hide sidebar" }).click();
+    await expect
+      .poll(() =>
+        sidebar.evaluate((element) => element.getAnimations().length > 0),
+      )
+      .toBeTruthy();
+    await expect(sidebar).toBeHidden();
+    await expect(
+      page.getByRole("button", { name: "Show sidebar" }),
+    ).toHaveAttribute("aria-expanded", "false");
+    await page.getByRole("button", { name: "Show sidebar" }).click();
+    await expect
+      .poll(() =>
+        sidebar.evaluate((element) => element.getAnimations().length > 0),
+      )
+      .toBeTruthy();
+    await expect(sidebar).toBeVisible();
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
@@ -146,11 +314,24 @@ for (const width of [1440, 768, 390]) {
     expect(accessibility.violations).toEqual([]);
     await page.getByRole("link", { name: "Settings" }).click();
     await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
-    await choose(page, "#default-preset", "Fast");
+    await choose(page, "#default-preset", "Quick");
     await page.getByRole("button", { name: "Save preferences" }).click();
     await expect(page.locator("[data-sileo-title]")).toContainText(
       "Preferences saved",
     );
+    await expect(
+      page.getByText(
+        "These defaults will be used for your next transcription.",
+        { exact: true },
+      ),
+    ).toBeVisible();
+    await expect
+      .poll(() =>
+        page
+          .locator("[data-sileo-viewport]")
+          .evaluate((element) => getComputedStyle(element).position),
+      )
+      .toBe("fixed");
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
@@ -168,6 +349,167 @@ for (const width of [1440, 768, 390]) {
     ).toBeTruthy();
   });
 }
+
+test("appearance follows light, dark, and system preferences", async ({
+  page,
+}) => {
+  const selectAppearance = async (name) => {
+    await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          response.url().endsWith("/api/settings") &&
+          response.request().method() === "PUT" &&
+          response.ok(),
+      ),
+      page.getByRole("radio", { name }).click(),
+    ]);
+  };
+
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.goto("/settings");
+  await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
+
+  await selectAppearance("Dark");
+  await expect(page.locator("html")).toHaveClass(/dark/);
+  await expect(page.locator("html")).toHaveAttribute("data-appearance", "dark");
+  await page.screenshot({
+    path: "test-results/settings-dark.png",
+    fullPage: true,
+  });
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await page.reload();
+  await expect(page.locator("html")).toHaveClass(/dark/);
+
+  await page.goto("/");
+  await expect(
+    page.getByRole("heading", { name: "Add recording" }),
+  ).toBeVisible();
+  await expectDarkControl(page.getByRole("button", { name: "Record meeting" }));
+  await page.getByRole("button", { name: /^Options/ }).click();
+  await expectDarkControl(page.locator("#provider"));
+  await page.waitForTimeout(300);
+  await page.screenshot({
+    path: "test-results/new-transcription-dark.png",
+    fullPage: true,
+  });
+
+  await page.goto("/library");
+  await expect(page.getByRole("heading", { name: "Library" })).toBeVisible();
+  await expectDarkControl(page.locator("#history-sort"));
+  await page.screenshot({
+    path: "test-results/library-dark.png",
+    fullPage: true,
+  });
+
+  await page.goto("/settings");
+
+  await selectAppearance("Light");
+  await expect(page.locator("html")).not.toHaveClass(/dark/);
+
+  await selectAppearance("System");
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect(page.locator("html")).toHaveClass(/dark/);
+  await page.emulateMedia({ colorScheme: "light" });
+  await expect(page.locator("html")).not.toHaveClass(/dark/);
+});
+
+test("transcription progress counter clips inactive digits", async ({
+  page,
+}) => {
+  const job = {
+    id: "counter-test",
+    title: "Meeting notes",
+    filename: "meeting.wav",
+    duration: 53,
+    preset: "balanced",
+    state: "transcribing",
+    progress: 5,
+    backend: "mlx",
+    provider: "local",
+    created: Date.now() / 1000 - 8,
+    started: Date.now() / 1000 - 6,
+    revision: 0,
+    language: "auto",
+    source_available: true,
+    playback_available: false,
+    segments: [],
+  };
+  await page.route("**/api/jobs/counter-test", (route) =>
+    route.fulfill({ json: job }),
+  );
+
+  await page.goto("/jobs/counter-test");
+  const counter = page.locator(".processing-percentage number-flow-react");
+  await expect(counter).toBeVisible();
+  expect((await counter.boundingBox()).width).toBeLessThan(160);
+  await page.screenshot({
+    path: "test-results/transcription-progress.png",
+    fullPage: true,
+  });
+});
+
+test("video transcripts use synchronized video playback", async ({ page }) => {
+  await page.route("**/api/jobs/video-test", (route) =>
+    route.fulfill({
+      json: {
+        id: "video-test",
+        title: "Video interview",
+        filename: "interview.mp4",
+        duration: 53,
+        preset: "balanced",
+        state: "completed",
+        progress: 100,
+        backend: "mlx",
+        provider: "local",
+        created: Date.now() / 1000 - 60,
+        started: Date.now() / 1000 - 50,
+        finished: Date.now() / 1000 - 10,
+        revision: 0,
+        detected_language: "en",
+        language: "auto",
+        source_available: true,
+        playback_available: true,
+        playback_kind: "video",
+        has_video: true,
+        template: {
+          id: "interview",
+          name: "Interview",
+          description: "Answers, quotes, and follow-ups",
+          bookmarks: ["Answer", "Quote", "Follow-up", "Concern"],
+        },
+        bookmarks: [],
+        notes: { summary: "", chapters: [], topics: [] },
+        segments: [
+          {
+            id: 1,
+            start: 0,
+            end: 53,
+            text: "The interview begins.",
+            original: "The interview begins.",
+          },
+        ],
+      },
+    }),
+  );
+  await page.route("**/api/jobs/video-test/video", (route) =>
+    route.fulfill({ contentType: "video/mp4", body: Buffer.from([]) }),
+  );
+
+  await page.goto("/jobs/video-test");
+  const video = page.getByLabel("Video interview video");
+  await expect(video).toBeVisible();
+  await expect(video).toHaveAttribute("src", "/api/jobs/video-test/video");
+  await expect(video).not.toHaveAttribute("controls");
+  await expect(page.locator("audio")).toHaveCount(0);
+  await expect(
+    page.getByRole("slider", { name: "Seek recording" }),
+  ).toBeVisible();
+  await expect(page.locator('[data-slot="step-player-control"]')).toBeVisible();
+  await page.screenshot({
+    path: "test-results/video-player.png",
+    fullPage: true,
+  });
+});
 
 test("keyboard import, cancellation, retry, undo, and navigation saves", async ({
   page,
@@ -223,6 +565,7 @@ test("keyboard import, cancellation, retry, undo, and navigation saves", async (
 test("model download shows measured progress, survives reload, and verifies before ready", async ({
   page,
 }) => {
+  await mockSystemNotifications(page);
   let state = {
     installed: false,
     downloading: false,
@@ -237,14 +580,14 @@ test("model download shows measured progress, survives reload, and verifies befo
     const body = await response.json();
     body.presets.fast = { ...body.presets.fast, ...state };
     body.models = body.models.map((model) =>
-      model.id === "base" ? { ...model, ...state } : model,
+      model.id === "small" ? { ...model, ...state } : model,
     );
     await route.fulfill({ json: body });
   });
-  await page.route("**/api/models/base", async (route) => {
+  await page.route("**/api/models/small", async (route) => {
     if (route.request().method() === "DELETE") {
       state = { ...state, phase: "available", installed: false };
-      await route.fulfill({ json: { deleted: true, model: "base" } });
+      await route.fulfill({ json: { deleted: true, model: "small" } });
     } else {
       state = {
         ...state,
@@ -258,19 +601,16 @@ test("model download shows measured progress, survives reload, and verifies befo
     }
   });
   await page.goto("/settings");
-  await page.getByPlaceholder("Search models").fill("base");
-  await expect(page.locator(".model-row")).toHaveCount(2);
-  await page.getByPlaceholder("Search models").fill("base.en");
+  await page.getByPlaceholder("Search models").fill("small");
   await expect(page.locator(".model-row")).toHaveCount(1);
-  await page.getByPlaceholder("Search models").fill("base");
   await page
-    .locator('.model-row[data-model="base"]')
+    .locator('.model-row[data-model="small"]')
     .getByRole("button", { name: "Install", exact: true })
     .click();
   await page
     .getByRole("button", { name: "Download model", exact: true })
     .click();
-  const bar = page.getByRole("progressbar", { name: "Base model download" });
+  const bar = page.getByRole("progressbar", { name: "Small model download" });
   await expect(bar).toHaveAttribute("aria-valuenow", "25");
   await expect(
     page.getByRole("status").filter({ hasText: "25%" }),
@@ -292,14 +632,56 @@ test("model download shows measured progress, survives reload, and verifies befo
   state = { ...state, phase: "ready", downloading: false, installed: true };
   await expect(bar).toHaveCount(0, { timeout: 6000 });
   await expect(page.locator(".model-row").first()).toContainText("Installed");
+  const completedToast = page
+    .locator("[data-sileo-toast]")
+    .filter({ hasText: "Model ready" });
+  await expect(completedToast).toContainText(
+    "Small finished downloading and can now be selected for transcription.",
+  );
+  await expect(
+    completedToast.getByRole("link", { name: "Open settings" }),
+  ).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => window.systemNotifications))
+    .toContainEqual({
+      title: "Model download completed",
+      body: "Small is ready to use.",
+    });
   await page
-    .locator('.model-row[data-model="base"]')
+    .locator('.model-row[data-model="small"]')
     .getByRole("button", { name: "Delete", exact: true })
     .click();
   await page.getByRole("button", { name: "Confirm delete" }).click();
-  await expect(page.locator('.model-row[data-model="base"]')).not.toContainText(
-    "Installed",
-  );
+  await expect(
+    page.locator('.model-row[data-model="small"]'),
+  ).not.toContainText("Installed");
+  await page
+    .locator('.model-row[data-model="small"]')
+    .getByRole("button", { name: "Install", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Download model", exact: true })
+    .click();
+  state = {
+    ...state,
+    phase: "failed",
+    downloading: false,
+    installed: false,
+    error: "Download interrupted.",
+  };
+  await expect
+    .poll(() => page.evaluate(() => window.systemNotifications), {
+      timeout: 6000,
+    })
+    .toContainEqual({
+      title: "Model download failed",
+      body: "Download interrupted.",
+    });
+  const failedToast = page
+    .locator("[data-sileo-toast]")
+    .filter({ hasText: "Download failed" });
+  await expect(failedToast).toContainText("Download interrupted.");
+  await expect(failedToast.getByRole("link", { name: "Retry" })).toBeVisible();
 });
 
 test("drop recording anywhere on stage and replace it", async ({ page }) => {

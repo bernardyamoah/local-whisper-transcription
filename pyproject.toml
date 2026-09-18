@@ -1,15 +1,23 @@
 [project]
 name = "local-whisper-transcription"
-version = "0.1.0"
+version = "0.4.11"
 description = "A private, local-first listening and transcription studio"
 requires-python = ">=3.12,<3.14"
-dependencies = ["fastapi>=0.115,<1", "uvicorn>=0.34,<1", "faster-whisper>=1.1,<2", "PyJWT[crypto]>=2.10,<3", "huggingface-hub>=1.31,<2"]
+dependencies = ["fastapi>=0.115,<1", "uvicorn>=0.34,<1", "mlx-whisper>=0.4,<1", "huggingface-hub>=1.31,<2"]
+
+[project.optional-dependencies]
+macos = [
+    "pyobjc-framework-usernotifications>=12.1,<13",
+    "pywebview>=6.1,<7",
+]
 
 [dependency-groups]
 dev = ["pytest>=8,<10", "httpx>=0.28,<1", "ruff>=0.11,<1"]
+package = ["pyinstaller>=6.16,<7"]
 
 [project.scripts]
 whisper-studio = "studio.cli:main"
+whisper-studio-macos = "studio.macos:main"
 
 [build-system]
 requires = ["hatchling"]

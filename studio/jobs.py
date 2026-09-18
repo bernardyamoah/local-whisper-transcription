@@ -26,10 +26,11 @@ ACTIVE = {"preparing", "transcribing", "saving", "cancelling"}
 
 
 class Orchestrator:
-    def __init__(self, store, command=None, model_path=None):
+    def __init__(self, store, command=None, model_path=None, deepgram_key=None):
         self.store = store
         self.command = command or [sys.executable, "-m", "studio.engine"]
         self.model_path = model_path or (lambda model: self.store.path("models", model))
+        self.deepgram_key = deepgram_key or (lambda: "")
         self.lock = threading.RLock()
         self.stop = threading.Event()
         self.thread = None
@@ -69,7 +70,7 @@ class Orchestrator:
         if self.thread:
             self.thread.join(timeout=15)
 
-    def create(self, media_id, title, language, preset, model):
+    def create(self, media_id, title, language, preset, model, provider="local", template="general"):
         with self.lock, self.store.connect() as db:
             media = db.execute("SELECT * FROM media WHERE id=?", (media_id,)).fetchone()
             if not media or not self.store.path("sources", media_id).exists():
@@ -78,9 +79,21 @@ class Orchestrator:
                 raise ValueError("This recording already has a job. Open it or retry it from your library.")
             identifier, now = uuid.uuid4().hex, time.time()
             db.execute(
-                """INSERT INTO jobs(id,media_id,title,state,stage,language,preset,model,created,updated)
-                       VALUES(?,?,?,'queued','queued',?,?,?,?,?)""",
-                (identifier, media_id, title or media["name"], language, preset, model, now, now),
+                """INSERT INTO jobs(
+                       id,media_id,title,state,stage,language,preset,model,provider,template,created,updated
+                     ) VALUES(?,?,?,'queued','queued',?,?,?,?,?,?,?)""",
+                (
+                    identifier,
+                    media_id,
+                    title or media["name"],
+                    language,
+                    preset,
+                    model,
+                    provider,
+                    template,
+                    now,
+                    now,
+                ),
             )
             db.execute("INSERT INTO transitions(job_id,state,at) VALUES(?,?,?)", (identifier, "queued", now))
         return self.store.job(identifier)
@@ -145,28 +158,35 @@ class Orchestrator:
         normalized = self.store.path("temporary", identifier, ".wav")
         output = self.store.path("temporary", identifier, ".json")
         events = self.store.path("temporary", identifier, ".jsonl")
-        playback = self.store.path("playback", identifier, ".mp3")
+        playback = self.store.path("playback", identifier, ".mp4" if job["has_video"] else ".mp3")
         process = None
         error_message = "Transcription stopped unexpectedly. Check the model and free disk space, then retry."
         try:
             events.write_text("")
+            model_path = str(self.model_path(job["model"])) if job["provider"] == "local" else ""
             process = subprocess.Popen(
                 self.command
                 + [
                     str(self.store.path("sources", job["media_id"])),
                     str(normalized),
                     str(playback),
-                    str(self.model_path(job["model"])),
+                    model_path,
                     job["language"],
                     self.store.settings()["hardware"],
                     str(output),
                     str(events),
+                    job["provider"],
                 ],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 start_new_session=True,
                 env=os.environ
-                | {"STUDIO_PARENT_PID": str(os.getpid()), "HF_HUB_OFFLINE": "1", "TRANSFORMERS_OFFLINE": "1"},
+                | {
+                    "STUDIO_PARENT_PID": str(os.getpid()),
+                    "HF_HUB_OFFLINE": "1",
+                    "TRANSFORMERS_OFFLINE": "1",
+                    "DEEPGRAM_API_KEY": self.deepgram_key() if job["provider"] == "deepgram" else "",
+                },
             )
             with events.open() as event_stream:
                 while True:
@@ -183,7 +203,9 @@ class Orchestrator:
                         if "error" in event:
                             error_message = event["error"]
                             logging.getLogger("studio").warning(
-                                "Engine failure: %s", event.get("category", "resource")
+                                "Engine failure: %s: %s",
+                                event.get("category", "resource"),
+                                event.get("detail", "No detail provided"),
                             )
                             continue
                         with self.lock, self.store.connect() as db:
@@ -212,7 +234,9 @@ class Orchestrator:
                         if not math.isfinite(start) or not math.isfinite(end) or not 0 <= start <= end:
                             raise ValueError("Invalid engine timestamps")
                         db.execute(
-                            "INSERT INTO segments(job_id,sequence,start,end,original,text,confidence) VALUES(?,?,?,?,?,?,?)",
+                            """INSERT INTO segments(
+                                job_id,sequence,start,end,original,text,confidence,speaker,speaker_name,words
+                            ) VALUES(?,?,?,?,?,?,?,?,?,?)""",
                             (
                                 identifier,
                                 sequence,
@@ -221,8 +245,21 @@ class Orchestrator:
                                 segment["text"],
                                 segment["text"],
                                 segment.get("confidence"),
+                                segment.get("speaker"),
+                                None,
+                                json.dumps(segment.get("words", [])),
                             ),
                         )
+                    db.execute(
+                        """INSERT OR REPLACE INTO meeting_notes(job_id,summary,chapters,topics)
+                           VALUES(?,?,?,?)""",
+                        (
+                            identifier,
+                            result.get("summary", ""),
+                            json.dumps(result.get("chapters", [])),
+                            json.dumps(result.get("topics", [])),
+                        ),
+                    )
                     self.transition(
                         db,
                         identifier,

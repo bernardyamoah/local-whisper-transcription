@@ -6,6 +6,7 @@ __pycache__/
 .env
 .data/
 dist/
+build/
 node_modules/
 test-results/
 playwright-report/

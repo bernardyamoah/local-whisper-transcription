@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, type ComponentProps } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+} from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { motion, useReducedMotion } from "motion/react";
 import { cn } from "@/lib/utils";
@@ -9,7 +15,8 @@ const CORNER = 6;
 const DASH =
   "repeating-linear-gradient(to top, transparent 0 2px, currentColor 2px 4px)";
 
-export type HookSidebarItem = string | { label: string; href?: string };
+export type HookSidebarItem =
+  string | { label: string; href?: string; icon?: ReactNode };
 
 export type HookSidebarProps = Omit<ComponentProps<"nav">, "onChange"> & {
   items: HookSidebarItem[];
@@ -26,6 +33,9 @@ const hrefOf = (item: HookSidebarItem) =>
 
 const labelOf = (item: HookSidebarItem) =>
   typeof item === "string" ? item : item.label;
+
+const iconOf = (item: HookSidebarItem) =>
+  typeof item === "string" ? undefined : item.icon;
 
 const Rail = ({
   from = 0,
@@ -181,6 +191,7 @@ export function HookSidebar({
         {items.map((item, index) => {
           const text = labelOf(item);
           const href = hrefOf(item);
+          const icon = iconOf(item);
           const isActive = index === activeIndex;
           const setRef = (el: HTMLElement | null) => {
             itemRefs.current[index] = el;
@@ -214,7 +225,12 @@ export function HookSidebar({
               to={href}
               aria-current={isActive ? "page" : undefined}
             >
-              {text}
+              {icon && (
+                <span className="hook-sidebar-icon" aria-hidden="true">
+                  {icon}
+                </span>
+              )}
+              <span>{text}</span>
             </Link>
           ) : (
             <button
@@ -224,7 +240,12 @@ export function HookSidebar({
               type="button"
               aria-current={isActive ? "true" : undefined}
             >
-              {text}
+              {icon && (
+                <span className="hook-sidebar-icon" aria-hidden="true">
+                  {icon}
+                </span>
+              )}
+              <span>{text}</span>
             </button>
           );
         })}

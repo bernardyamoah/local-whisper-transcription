@@ -10,11 +10,15 @@ import uvicorn
 from studio.app import create_app
 
 root = Path(tempfile.mkdtemp(prefix="studio-browser-tests-"))
-app = create_app(root, command=[sys.executable, str(Path(__file__).parent / "fake_engine.py")])
-for model in ["base", "small", "medium"]:
+app = create_app(
+    root,
+    command=[sys.executable, str(Path(__file__).parent / "fake_engine.py")],
+    native_command=[sys.executable, str(Path(__file__).parent / "fake_native_bridge.py")],
+)
+for model in ["small", "turbo", "large-v3"]:
     path = app.state.store.path("models", model)
     path.mkdir()
-    for file in [".ready", "model.bin", "config.json", "tokenizer.json"]:
+    for file in [".ready", "config.json", "weights.npz"]:
         (path / file).write_text("test")
 with wave.open(str(root / "fixture.wav"), "wb") as stream:
     stream.setnchannels(1)

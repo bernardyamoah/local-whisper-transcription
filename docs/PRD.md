@@ -5,7 +5,9 @@
 **Primary user:** The application owner  
 **Target platform:** Modern desktop and tablet browsers at `transcribe.bernardyamoah.com`  
 **Transcription engine:** OpenAI Whisper running locally  
-**Hosting model:** Local origin published through Cloudflare Tunnel and protected by Cloudflare Access  
+**Current distribution model:** Public marketing website plus a loopback-only installed macOS app  
+
+> The original private-domain design in this document has been superseded. The production hostname now serves only the public marketing website and installer. The installed app handles recordings and transcripts locally; Cloudflare Tunnel and Access are no longer product requirements.
 **Last updated:** September 17, 2026
 
 ## Problem Statement

@@ -1,73 +1,48 @@
-import os
 from urllib.parse import urlsplit
 
-import jwt
 from fastapi.responses import JSONResponse
-from starlette.concurrency import run_in_threadpool
+
+# Exact styles emitted by @number-flow/react 0.6.2. Hashes keep the CSP strict
+# while allowing the component's Shadow DOM animation styles.
+NUMBER_FLOW_STYLE_HASHES = (
+    "'sha256-IRGtDaJoWUyd8zoPZ2Rl1Ad5ErPWovCmj1jXl1LdmQA=' "
+    "'sha256-Kf7/sUbgqFJXjmEU4ouAuE2GpLidyjTxmVez5zPkWyQ=' "
+    "'sha256-HR6/MuuYfB8aijiNP5MPm3YOR8WqVmL7UkE3Q8OslTs='"
+)
 
 
 class Boundary:
-    def __init__(self):
-        self.hostname = os.getenv("STUDIO_HOSTNAME", "transcribe.bernardyamoah.com")
-        self.team = os.getenv("CF_ACCESS_TEAM_DOMAIN", "").removeprefix("https://").rstrip("/")
-        self.audience = os.getenv("CF_ACCESS_AUDIENCE", "")
-        self.email = os.getenv("CF_ACCESS_EMAIL", "")
-        self.jwks = (
-            jwt.PyJWKClient(f"https://{self.team}/cdn-cgi/access/certs", timeout=5) if self.team else None
-        )
-
-    def validate(self, token):
-        if not self.jwks or not self.audience or not self.email:
-            raise ValueError("Access is not configured")
-        key = self.jwks.get_signing_key_from_jwt(token).key
-        claims = jwt.decode(
-            token,
-            key,
-            algorithms=["RS256"],
-            audience=self.audience,
-            issuer=f"https://{self.team}",
-            options={"require": ["exp", "iat", "iss", "aud", "email"]},
-        )
-        if claims["email"].casefold() != self.email.casefold():
-            raise ValueError("Identity is not allowed")
-        return claims["email"]
-
     async def __call__(self, request, call_next):
         host = request.url.hostname
         local = host in {"localhost", "127.0.0.1", "::1", "testserver"}
         # testserver is accepted only for Starlette's in-process test client.
         if host == "testserver" and request.client.host != "testclient":
             local = False
-        if not local and host != self.hostname:
-            return JSONResponse({"detail": "Unrecognized origin host."}, status_code=403)
-        request.state.access_verified = False
         if not local:
-            if request.headers.get("x-forwarded-proto") != "https":
-                return JSONResponse({"detail": "HTTPS is required."}, status_code=403)
-            try:
-                request.state.identity = await run_in_threadpool(
-                    self.validate, request.headers.get("cf-access-jwt-assertion", "")
-                )
-                request.state.access_verified = True
-            except Exception:
-                return JSONResponse(
-                    {
-                        "detail": "Cloudflare Access verification failed. Sign in again or check origin configuration."
-                    },
-                    status_code=403,
-                )
+            return JSONResponse(
+                {"detail": "Whisper Studio is available only on this Mac."},
+                status_code=403,
+            )
         if request.method not in {"GET", "HEAD", "OPTIONS"}:
             origin = request.headers.get("origin")
-            expected_scheme = "http" if local else "https"
             if origin and (
-                urlsplit(origin).netloc != request.url.netloc or urlsplit(origin).scheme != expected_scheme
+                urlsplit(origin).netloc != request.url.netloc or urlsplit(origin).scheme != "http"
             ):
-                return JSONResponse({"detail": "Cross-origin writes are not allowed."}, status_code=403)
+                return JSONResponse(
+                    {"detail": "Cross-origin writes are not allowed."},
+                    status_code=403,
+                )
             if request.headers.get("x-studio-request") != "1":
-                return JSONResponse({"detail": "Missing application request header."}, status_code=403)
+                return JSONResponse(
+                    {"detail": "Missing application request header."},
+                    status_code=403,
+                )
         response = await call_next(request)
         response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'"
+            "default-src 'self'; script-src 'self'; style-src 'self' "
+            f"{NUMBER_FLOW_STYLE_HASHES}; img-src 'self' data:; "
+            "font-src 'self'; media-src 'self' blob:; connect-src 'self'; frame-ancestors "
+            "'none'; base-uri 'none'; form-action 'self'; object-src 'none'"
         )
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"

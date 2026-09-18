@@ -13,6 +13,7 @@ export default defineConfig({
     proxy: {
       "/api": backend,
       "/static": backend,
+      "/website": backend,
     },
   },
   plugins: [

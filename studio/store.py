@@ -11,8 +11,11 @@ DEFAULTS = {
     "language": "auto",
     "preset": "balanced",
     "retain_source": True,
+    "onboarding_completed": False,
     "max_duration_hours": 4,
     "hardware": "auto",
+    "transcription_provider": "local",
+    "appearance": "system",
 }
 
 
@@ -46,8 +49,38 @@ class Store:
               id INTEGER PRIMARY KEY, job_id TEXT NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
               state TEXT NOT NULL, at REAL NOT NULL);
             CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated REAL);
-            PRAGMA user_version=1;
             """)
+            version = db.execute("PRAGMA user_version").fetchone()[0]
+            if version < 2:
+                db.execute("ALTER TABLE jobs ADD COLUMN provider TEXT NOT NULL DEFAULT 'local'")
+                db.execute("ALTER TABLE segments ADD COLUMN speaker INTEGER")
+                db.execute("PRAGMA user_version=2")
+                version = 2
+            if version < 3:
+                db.execute("ALTER TABLE segments ADD COLUMN speaker_name TEXT")
+                db.execute("ALTER TABLE segments ADD COLUMN words TEXT")
+                db.execute("""CREATE TABLE IF NOT EXISTS meeting_notes (
+                  job_id TEXT PRIMARY KEY REFERENCES jobs(id) ON DELETE CASCADE,
+                  summary TEXT NOT NULL DEFAULT '',
+                  chapters TEXT NOT NULL DEFAULT '[]',
+                  topics TEXT NOT NULL DEFAULT '[]')""")
+                db.execute("PRAGMA user_version=3")
+                version = 3
+            if version < 4:
+                db.execute("ALTER TABLE media ADD COLUMN has_video INTEGER NOT NULL DEFAULT 0")
+                db.execute("PRAGMA user_version=4")
+                version = 4
+            if version < 5:
+                db.execute("ALTER TABLE jobs ADD COLUMN template TEXT NOT NULL DEFAULT 'general'")
+                db.execute("""CREATE TABLE IF NOT EXISTS bookmarks (
+                  id TEXT PRIMARY KEY,
+                  media_id TEXT NOT NULL,
+                  at REAL NOT NULL,
+                  kind TEXT NOT NULL,
+                  note TEXT NOT NULL DEFAULT '',
+                  created REAL NOT NULL)""")
+                db.execute("CREATE INDEX IF NOT EXISTS bookmarks_media ON bookmarks(media_id, at)")
+                db.execute("PRAGMA user_version=5")
 
     @contextmanager
     def connect(self):
@@ -67,7 +100,7 @@ class Store:
             c not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_" for c in identifier
         ):
             raise ValueError("Invalid storage identifier")
-        if suffix not in {"", ".wav", ".mp3", ".json", ".jsonl", ".part"}:
+        if suffix not in {"", ".wav", ".mp3", ".mp4", ".json", ".jsonl", ".part"}:
             raise ValueError("Invalid storage suffix")
         path = self.root / folder / (identifier + suffix)
         if not path.resolve().is_relative_to((self.root / folder).resolve()):
@@ -89,15 +122,18 @@ class Store:
     def job(self, identifier):
         with self.connect() as db:
             row = db.execute(
-                """SELECT j.*, m.name AS filename, m.duration, m.size, m.retained
+                """SELECT j.*, m.name AS filename, m.duration, m.size, m.retained, m.has_video
                 FROM jobs j JOIN media m ON m.id=j.media_id WHERE j.id=?""",
                 (identifier,),
             ).fetchone()
             if row is None:
                 raise KeyError(identifier)
             result = dict(row)
+            result["has_video"] = bool(result["has_video"])
             result["source_available"] = self.path("sources", result["media_id"]).exists()
-            result["playback_available"] = self.path("playback", identifier, ".mp3").exists()
+            result["playback_kind"] = "video" if result["has_video"] else "audio"
+            suffix = ".mp4" if result["has_video"] else ".mp3"
+            result["playback_available"] = self.path("playback", identifier, suffix).exists()
             return result
 
 
@@ -110,8 +146,8 @@ def presets():
             "description": description,
         }
         for key, model, memory, size, description in [
-            ("fast", "base", "~1 GB", 150, "Quick notes & clear speech"),
-            ("balanced", "small", "~2 GB", 500, "A little more attention to detail"),
-            ("accurate", "medium", "~5 GB", 1500, "For the words that matter most"),
+            ("fast", "small", "~2 GB", 500, "Quick · lighter memory use"),
+            ("balanced", "turbo", "~6 GB", 1600, "Recommended for this Mac"),
+            ("accurate", "large-v3", "~10 GB", 3000, "Precise · close other demanding apps"),
         ]
     }

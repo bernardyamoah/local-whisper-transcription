@@ -1,6 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState, type FormEvent } from "react";
 import { AppSelect } from "@/components/app-select";
+import { LanguageCombobox } from "@/components/language-combobox";
 import { Badge } from "@/components/ui/badge";
 import { AnimatedCounter } from "@/components/ui/animated-counter";
 import { buttonVariants } from "@/components/ui/button";
@@ -8,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { DeleteButton } from "@/components/ui/delete-button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useStudio } from "../components/studio-context";
 import {
   Button,
@@ -17,7 +19,12 @@ import {
   type ConfirmRequest,
 } from "../components/ui";
 import { api, bytes, titleCase } from "../lib/api";
-import { isRecommendedModel, RECOMMENDED_MODEL_IDS } from "../lib/models";
+import { applyAppearance, type Appearance } from "../lib/appearance";
+import {
+  isRecommendedModel,
+  presetLabel,
+  RECOMMENDED_MODEL_IDS,
+} from "../lib/models";
 import {
   prepareSystemNotifications,
   trackModelDownload,
@@ -31,15 +38,12 @@ function SettingsPage() {
     useStudio();
   const [draft, setDraft] = useState(settings);
   const [query, setQuery] = useState("");
+  const [deepgramKey, setDeepgramKey] = useState("");
+  const [connectingDeepgram, setConnectingDeepgram] = useState(false);
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
   const [pendingAction, setPendingAction] = useState<
     null | (() => Promise<void>)
   >(null);
-  const names = useMemo(
-    () => new Intl.DisplayNames(["en"], { type: "language" }),
-    [],
-  );
-
   async function save(event: FormEvent) {
     event.preventDefault();
     try {
@@ -48,8 +52,29 @@ function SettingsPage() {
         body: JSON.stringify(draft),
       });
       setSettings(value);
-      notice("Preferences saved");
+      notice({
+        title: "Preferences saved",
+        description: "These defaults will be used for your next transcription.",
+      });
     } catch (reason) {
+      notice((reason as Error).message, true);
+    }
+  }
+
+  async function changeAppearance(appearance: Appearance) {
+    const previous = draft.appearance;
+    const next = { ...draft, appearance };
+    setDraft(next);
+    applyAppearance(appearance);
+    try {
+      const value = await api<Settings>("/settings", {
+        method: "PUT",
+        body: JSON.stringify(next),
+      });
+      setSettings(value);
+    } catch (reason) {
+      setDraft({ ...draft, appearance: previous });
+      applyAppearance(previous);
       notice((reason as Error).message, true);
     }
   }
@@ -79,9 +104,42 @@ function SettingsPage() {
         body: JSON.stringify({ confirm: true }),
       });
       await refreshEnvironment();
+      notice({
+        title: "Model removed",
+        description: `${model.name} was deleted and its storage was reclaimed.`,
+        kind: "info",
+      });
     } catch (reason) {
       notice((reason as Error).message, true);
     }
+  }
+
+  async function connectDeepgram() {
+    setConnectingDeepgram(true);
+    try {
+      await api("/providers/deepgram", {
+        method: "POST",
+        body: JSON.stringify({ api_key: deepgramKey }),
+      });
+      setDeepgramKey("");
+      setDraft({ ...draft, transcription_provider: "deepgram" });
+      await refreshEnvironment();
+      notice({ title: "Deepgram connected" });
+    } catch (reason) {
+      notice((reason as Error).message, true);
+    } finally {
+      setConnectingDeepgram(false);
+    }
+  }
+
+  async function disconnectDeepgram() {
+    await api("/providers/deepgram", {
+      method: "DELETE",
+      body: JSON.stringify({ confirm: true }),
+    });
+    setDraft({ ...draft, transcription_provider: "local" });
+    await refreshEnvironment();
+    notice({ title: "Deepgram disconnected" });
   }
 
   const presets = Object.fromEntries(
@@ -112,29 +170,72 @@ function SettingsPage() {
 
   return (
     <section>
-      <PageHeader title="Settings" />
+      <PageHeader
+        title="Settings"
+        action={
+          <Link to="/welcome" className="text-button">
+            Run setup ↗
+          </Link>
+        }
+      />
       <div className="settings-grid">
         <div>
+          <section className="settings-section appearance-section">
+            <h2>Appearance</h2>
+            <RadioGroup
+              className="appearance-options"
+              aria-label="Appearance"
+              value={draft.appearance}
+              onValueChange={(value) =>
+                void changeAppearance(value as Appearance)
+              }
+            >
+              {(["light", "dark", "system"] as const).map((appearance) => (
+                <label
+                  key={appearance}
+                  data-selected={draft.appearance === appearance}
+                >
+                  <RadioGroupItem value={appearance} />
+                  {titleCase(appearance)}
+                </label>
+              ))}
+            </RadioGroup>
+          </section>
           <form className="settings-section" onSubmit={save}>
             <h2>Preferences</h2>
             <Field className="field">
               <FieldLabel htmlFor="default-language">
                 Default language
               </FieldLabel>
-              <AppSelect
+              <LanguageCombobox
                 id="default-language"
                 value={draft.language}
+                languages={environment.languages}
                 onValueChange={(language) => setDraft({ ...draft, language })}
+              />
+            </Field>
+            <Field className="field">
+              <FieldLabel htmlFor="transcription-provider">
+                Transcription
+              </FieldLabel>
+              <AppSelect
+                id="transcription-provider"
+                value={draft.transcription_provider}
+                onValueChange={(transcription_provider) =>
+                  setDraft({
+                    ...draft,
+                    transcription_provider:
+                      transcription_provider as Settings["transcription_provider"],
+                  })
+                }
                 options={[
-                  { value: "auto", label: "Detect automatically" },
-                  ...[...environment.languages]
-                    .sort((a, b) =>
-                      (names.of(a) || a).localeCompare(names.of(b) || b),
-                    )
-                    .map((code) => ({
-                      value: code,
-                      label: names.of(code) || code,
-                    })),
+                  { value: "local", label: "On this Mac" },
+                  {
+                    value: "deepgram",
+                    label: environment.deepgram.configured
+                      ? "Deepgram"
+                      : "Deepgram · connect first",
+                  },
                 ]}
               />
             </Field>
@@ -150,7 +251,7 @@ function SettingsPage() {
                   })
                 }
                 options={(["fast", "balanced", "accurate"] as const).map(
-                  (value) => ({ value, label: titleCase(value) }),
+                  (value) => ({ value, label: presetLabel(value) }),
                 )}
               />
             </Field>
@@ -186,9 +287,8 @@ function SettingsPage() {
                   })
                 }
                 options={[
-                  { value: "auto", label: "Automatic" },
-                  { value: "cpu", label: "CPU" },
-                  { value: "cuda", label: "CUDA" },
+                  { value: "auto", label: "Automatic (recommended)" },
+                  { value: "apple", label: "Apple MLX" },
                 ]}
               />
             </Field>
@@ -203,6 +303,40 @@ function SettingsPage() {
             </label>
             <Button type="submit">Save preferences</Button>
           </form>
+          <div className="settings-section deepgram-settings">
+            <div className="model-heading">
+              <h2>Deepgram</h2>
+              <Badge variant="outline">
+                {environment.deepgram.configured
+                  ? "Connected"
+                  : "Not connected"}
+              </Badge>
+            </div>
+            {environment.deepgram.configured ? (
+              <Button variant="outline" onClick={disconnectDeepgram}>
+                Disconnect
+              </Button>
+            ) : (
+              <>
+                <Field className="field">
+                  <FieldLabel htmlFor="deepgram-key">API key</FieldLabel>
+                  <Input
+                    id="deepgram-key"
+                    type="password"
+                    autoComplete="off"
+                    value={deepgramKey}
+                    onChange={(event) => setDeepgramKey(event.target.value)}
+                  />
+                </Field>
+                <Button
+                  disabled={connectingDeepgram || deepgramKey.length < 20}
+                  onClick={connectDeepgram}
+                >
+                  {connectingDeepgram ? "Connecting…" : "Connect"}
+                </Button>
+              </>
+            )}
+          </div>
         </div>
         <div>
           <div className="settings-section">
@@ -249,6 +383,11 @@ function SettingsPage() {
                             body: JSON.stringify({ confirm: true }),
                           });
                           trackModelDownload(model);
+                          notice({
+                            title: "Model download started",
+                            description: `${model.name} will be verified before it becomes available. You can keep using the app.`,
+                            kind: "info",
+                          });
                         },
                       );
                     }}
@@ -268,7 +407,7 @@ function SettingsPage() {
               <dt>FFmpeg</dt>
               <dd>{environment.ffmpeg ? "Installed" : "Missing"}</dd>
               <dt>Whisper runtime</dt>
-              <dd>faster-whisper {environment.runtime}</dd>
+              <dd>MLX Whisper {environment.runtime}</dd>
               <dt>Backend</dt>
               <dd>{environment.compute.toUpperCase()}</dd>
               <dt>Database</dt>

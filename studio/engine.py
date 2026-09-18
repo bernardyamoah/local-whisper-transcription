@@ -1,45 +1,84 @@
 """Isolated inference process. Killing its process group also stops FFmpeg."""
 
+import contextlib
 import importlib.metadata
 import json
+import math
 import os
+import re
 import signal
 import subprocess
 import sys
 import threading
+import time
+import wave
 from pathlib import Path
 
 
-def transcribe(model, source, language, on_segment=lambda segment, info: None):
+class ProgressReporter:
+    """Turn model progress and a conservative heartbeat into monotonic job progress."""
+
+    def __init__(self, emit, duration, provider):
+        self.emit = emit
+        self.duration = max(float(duration), 0.1)
+        self.provider = provider
+        self.value = 5.0
+        self.lock = threading.Lock()
+
+    def report(self, value):
+        value = min(94.0, max(5.0, float(value)))
+        with self.lock:
+            if value <= self.value + 0.05:
+                return
+            self.value = value
+            self.emit(stage="transcribing", progress=round(value, 1))
+
+    def write(self, message):
+        for percentage in re.findall(r"(\d+(?:\.\d+)?)%", message):
+            self.report(5 + float(percentage) * 0.89)
+        return len(message)
+
+    def flush(self):
+        return None
+
+    def pulse(self, stop):
+        expected = max(4.0, self.duration * (0.08 if self.provider == "deepgram" else 0.35))
+        started = time.monotonic()
+        while not stop.wait(0.5):
+            elapsed = time.monotonic() - started
+            estimate = 5 + 88 * (1 - math.exp(-elapsed / expected))
+            self.report(min(93, estimate))
+
+
+def transcribe(transcriber, source, language):
     options = {
         "language": None if language == "auto" else language,
-        "vad_filter": True,
-        "beam_size": 5,
+        "word_timestamps": False,
+        "verbose": False,
     }
     passes = (
         options,
         options | {"no_speech_threshold": 0.9, "log_prob_threshold": -2.0},
     )
     for settings in passes:
-        segments, info = model.transcribe(source, **settings)
-        result = []
-        for segment in segments:
-            result.append(
-                {
-                    "start": segment.start,
-                    "end": segment.end,
-                    "text": segment.text.strip(),
-                    "confidence": segment.avg_logprob,
-                }
-            )
-            on_segment(segment, info)
+        response = transcriber(source, **settings)
+        result = [
+            {
+                "start": segment["start"],
+                "end": segment["end"],
+                "text": segment["text"].strip(),
+                "confidence": segment.get("avg_logprob"),
+            }
+            for segment in response["segments"]
+            if segment["text"].strip()
+        ]
         if result:
-            return result, info
-    return [], info
+            return result, response["language"]
+    return [], response["language"]
 
 
 def main():
-    source, normalized, playback, model_path, language, hardware, output, events = sys.argv[1:]
+    source, normalized, playback, model_path, language, hardware, output, events, provider = sys.argv[1:]
     expected_parent = int(os.getenv("STUDIO_PARENT_PID", str(os.getppid())))
 
     def watch_parent():
@@ -52,8 +91,10 @@ def main():
 
     threading.Thread(target=watch_parent, daemon=True).start()
 
+    event_lock = threading.Lock()
+
     def emit(**event):
-        with open(events, "a") as stream:
+        with event_lock, open(events, "a") as stream:
             stream.write(json.dumps(event) + "\n")
 
     try:
@@ -81,28 +122,88 @@ def main():
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
-        import ctranslate2
-        from faster_whisper import WhisperModel
-
-        backend = "cuda" if hardware != "cpu" and ctranslate2.get_cuda_device_count() else "cpu"
-        if hardware == "cuda" and backend != "cuda":
-            raise RuntimeError("CUDA was requested but is unavailable. Choose Auto or CPU in settings.")
-        emit(stage="transcribing", progress=5, backend=backend)
-        model = WhisperModel(
-            model_path,
-            device=backend,
-            compute_type="int8" if backend == "cpu" else "float16",
-            cpu_threads=max(1, (os.cpu_count() or 2) // 2),
-            local_files_only=True,
+        with wave.open(normalized, "rb") as audio:
+            duration = audio.getnframes() / audio.getframerate()
+        reporter = ProgressReporter(emit, duration, provider)
+        reporter_stop = threading.Event()
+        reporter_thread = threading.Thread(
+            target=reporter.pulse,
+            args=(reporter_stop,),
+            daemon=True,
+            name="transcription-progress",
         )
+        emit(
+            stage="transcribing",
+            progress=5,
+            backend="deepgram" if provider == "deepgram" else "mlx",
+        )
+        reporter_thread.start()
+        try:
+            if provider == "deepgram":
+                from studio.deepgram import transcribe_file
 
-        def progress(segment, info):
-            emit(stage="transcribing", progress=min(94, 5 + 89 * segment.end / max(info.duration, 1)))
+                key = os.environ.get("DEEPGRAM_API_KEY", "")
+                if not key:
+                    raise RuntimeError("Deepgram is not connected.")
+                cloud = transcribe_file(Path(normalized), key, language)
+                result = cloud["segments"]
+                detected_language = cloud["language"]
+                engine_version = cloud["version"]
+                meeting_notes = {
+                    "summary": cloud.get("summary", ""),
+                    "chapters": cloud.get("chapters", []),
+                    "topics": cloud.get("topics", []),
+                }
+            else:
+                import mlx_whisper
 
-        result, info = transcribe(model, normalized, language, progress)
+                if hardware not in {"auto", "apple"}:
+                    raise RuntimeError(
+                        "This build uses Apple Silicon acceleration. Choose Automatic or Apple MLX."
+                    )
+
+                def run(audio, **options):
+                    with contextlib.redirect_stderr(reporter):
+                        return mlx_whisper.transcribe(audio, path_or_hf_repo=model_path, **options)
+
+                result, detected_language = transcribe(run, normalized, language)
+                engine_version = importlib.metadata.version("mlx-whisper")
+                meeting_notes = {"summary": "", "chapters": [], "topics": []}
+        finally:
+            reporter_stop.set()
+            reporter_thread.join(timeout=1)
         emit(stage="saving", progress=96)
-        subprocess.run(
+        playback_command = (
             [
+                "ffmpeg",
+                "-nostdin",
+                "-v",
+                "error",
+                "-i",
+                source,
+                "-map",
+                "0:v:0",
+                "-map",
+                "0:a:0",
+                "-c:v",
+                "libx264",
+                "-preset",
+                "veryfast",
+                "-crf",
+                "24",
+                "-vf",
+                "scale='min(1280,iw)':-2",
+                "-c:a",
+                "aac",
+                "-b:a",
+                "96k",
+                "-movflags",
+                "+faststart",
+                "-y",
+                playback,
+            ]
+            if Path(playback).suffix == ".mp4"
+            else [
                 "ffmpeg",
                 "-nostdin",
                 "-v",
@@ -115,7 +216,10 @@ def main():
                 "64k",
                 "-y",
                 playback,
-            ],
+            ]
+        )
+        subprocess.run(
+            playback_command,
             check=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
@@ -124,8 +228,9 @@ def main():
             json.dumps(
                 {
                     "segments": result,
-                    "language": info.language,
-                    "version": importlib.metadata.version("faster-whisper"),
+                    "language": detected_language,
+                    "version": engine_version,
+                    **meeting_notes,
                 }
             )
         )
@@ -134,8 +239,13 @@ def main():
         sys.exit(1)
     except Exception as error:
         emit(
-            error="Processing failed. Check FFmpeg, available disk space, and the installed model; then retry.",
+            error=(
+                str(error)
+                if provider == "deepgram"
+                else "Processing failed. Check FFmpeg, available disk space, and the installed model; then retry."
+            ),
             category=type(error).__name__,
+            detail=str(error),
         )
         sys.exit(1)
 
