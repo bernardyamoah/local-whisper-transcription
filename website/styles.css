@@ -401,6 +401,117 @@ h3 {
   margin-top: 10px;
   max-width: 240px;
 }
+.guide-steps {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.guide-steps li {
+  display: grid;
+  grid-template-columns: 54px 1fr;
+  gap: 22px;
+}
+.step-number {
+  padding-top: 4px;
+  color: #7b897f;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+}
+.guide-steps p {
+  margin-top: 9px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.65;
+}
+.demo-steps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-block: 1px solid var(--line);
+}
+.demo-video {
+  overflow: hidden;
+  margin-bottom: 42px;
+  border: 1px solid #dbe2d8;
+  border-radius: 18px;
+  background: #111512;
+  box-shadow: 0 24px 70px #263e2d12;
+}
+.demo-video video {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1512 / 982;
+  object-fit: cover;
+}
+.demo-steps li {
+  display: block;
+  min-height: 210px;
+  padding: 28px 28px 32px;
+  border-right: 1px solid var(--line);
+}
+.demo-steps li:first-child {
+  padding-left: 0;
+}
+.demo-steps li:last-child {
+  padding-right: 0;
+  border-right: 0;
+}
+.demo-steps h3 {
+  margin-top: 48px;
+}
+.install-guide {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.8fr) 1.35fr;
+  column-gap: 90px;
+  row-gap: 58px;
+  padding: 70px 72px;
+  margin-top: 130px;
+  border-radius: 24px;
+  background: #edf1e7;
+  border: 1px solid #e0e7d8;
+}
+.install-heading .eyebrow {
+  margin-bottom: 18px;
+  color: #56705c;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.install-heading > p:last-child {
+  margin-top: 24px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.7;
+}
+.install-steps li {
+  padding: 0 0 25px;
+  margin-bottom: 25px;
+  border-bottom: 1px solid var(--line);
+}
+.install-steps li:last-child {
+  margin-bottom: 0;
+}
+.install-footer {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 32px;
+  padding-top: 30px;
+  border-top: 1px solid var(--line);
+}
+.install-footer p {
+  max-width: 610px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.install-footer .button.primary {
+  background: linear-gradient(#34513f, #233e2d);
+  color: white;
+}
 .privacy {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -472,6 +583,11 @@ h3 {
   line-height: 1.7;
   padding: 0 28px 22px 0;
   max-width: 470px;
+}
+.faq-list details p a {
+  color: #355b43;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 .closing {
   position: relative;
@@ -606,6 +722,26 @@ footer > a:last-child {
   }
   .feature-art {
     height: 230px;
+  }
+  .demo-steps {
+    grid-template-columns: 1fr 1fr;
+  }
+  .demo-steps li,
+  .demo-steps li:first-child,
+  .demo-steps li:last-child {
+    padding: 28px;
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+  }
+  .demo-steps li:nth-child(2n) {
+    border-right: 0;
+  }
+  .demo-steps li:nth-last-child(-n + 2) {
+    border-bottom: 0;
+  }
+  .install-guide {
+    column-gap: 45px;
+    padding: 55px 45px;
   }
 }
 @media (max-width: 600px) {
@@ -743,6 +879,44 @@ footer > a:last-child {
   }
   .export-feature .feature-copy {
     padding: 0 25px 27px;
+  }
+  .demo-steps {
+    grid-template-columns: 1fr;
+  }
+  .demo-steps li,
+  .demo-steps li:first-child,
+  .demo-steps li:last-child {
+    min-height: 0;
+    padding: 25px 0;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .demo-steps li:nth-last-child(2) {
+    border-bottom: 1px solid var(--line);
+  }
+  .demo-steps li:last-child {
+    border-bottom: 0;
+  }
+  .demo-steps h3 {
+    margin-top: 28px;
+  }
+  .demo-video {
+    margin-bottom: 28px;
+    border-radius: 12px;
+  }
+  .install-guide {
+    grid-template-columns: 1fr;
+    gap: 36px;
+    padding: 42px 24px;
+    margin-top: 80px;
+  }
+  .install-footer {
+    grid-column: auto;
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .install-footer .button {
+    width: 100%;
   }
   .privacy {
     grid-template-columns: 1fr;

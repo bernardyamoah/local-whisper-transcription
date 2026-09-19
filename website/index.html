@@ -47,8 +47,8 @@
         ></a
       >
       <nav aria-label="Main navigation">
-        <a href="#studio">The studio</a><a href="#privacy">Privacy</a
-        ><a href="#questions">Questions</a>
+        <a href="#studio">The studio</a><a href="#demo">Demo</a
+        ><a href="#install">Install</a><a href="#privacy">Privacy</a>
       </nav>
       <a class="button small" href="/download/Whisper-Studio.dmg" download
         >Download for Mac
@@ -233,6 +233,130 @@
           </article>
         </div>
       </section>
+      <section class="demo-guide wrap section" id="demo">
+        <div class="section-heading reveal">
+          <h2>From recording<br /><span>to useful words.</span></h2>
+          <p>
+            A simple path through Whisper Studio.<br />Your first transcript
+            only takes a few steps.
+          </p>
+        </div>
+        <div class="demo-video reveal">
+          <video
+            controls
+            playsinline
+            preload="metadata"
+            poster="./media/demo-poster.jpg"
+            aria-label="Whisper Studio walkthrough from live meeting recording to a finished transcript"
+          >
+            <source src="./media/whisper-studio-demo.mp4" type="video/mp4" />
+            Your browser does not support embedded video.
+          </video>
+        </div>
+        <ol class="guide-steps demo-steps">
+          <li class="reveal">
+            <span class="step-number">01</span>
+            <div>
+              <h3>Add or record</h3>
+              <p>
+                Choose an audio file, or start a meeting recording inside the
+                app.
+              </p>
+            </div>
+          </li>
+          <li class="reveal">
+            <span class="step-number">02</span>
+            <div>
+              <h3>Choose your language</h3>
+              <p>
+                Let Whisper Studio detect it, or select one before you begin.
+              </p>
+            </div>
+          </li>
+          <li class="reveal">
+            <span class="step-number">03</span>
+            <div>
+              <h3>Follow along</h3>
+              <p>
+                Read the live transcript while recording and scroll back without
+                losing your place.
+              </p>
+            </div>
+          </li>
+          <li class="reveal">
+            <span class="step-number">04</span>
+            <div>
+              <h3>Polish and export</h3>
+              <p>
+                Search, edit, bookmark key moments, then export the format you
+                need.
+              </p>
+            </div>
+          </li>
+        </ol>
+      </section>
+      <section class="install-guide wrap section" id="install">
+        <div class="install-heading reveal">
+          <p class="eyebrow">Beta installation</p>
+          <h2>Set up your studio.</h2>
+          <p>
+            This preview is not Apple-notarized yet, so macOS needs one extra
+            approval on first launch.
+          </p>
+        </div>
+        <ol class="guide-steps install-steps">
+          <li class="reveal">
+            <span class="step-number">01</span>
+            <div>
+              <h3>Download the DMG</h3>
+              <p>Use the official download on this page, then open the file.</p>
+            </div>
+          </li>
+          <li class="reveal">
+            <span class="step-number">02</span>
+            <div>
+              <h3>Move it to Applications</h3>
+              <p>Drag Whisper Studio into the Applications folder.</p>
+            </div>
+          </li>
+          <li class="reveal">
+            <span class="step-number">03</span>
+            <div>
+              <h3>Try to open it once</h3>
+              <p>
+                Open Whisper Studio from Applications. If macOS blocks it, close
+                the warning.
+              </p>
+            </div>
+          </li>
+          <li class="reveal">
+            <span class="step-number">04</span>
+            <div>
+              <h3>Choose Open Anyway</h3>
+              <p>
+                Go to System Settings → Privacy &amp; Security, scroll to
+                Security, then choose Open Anyway and confirm.
+              </p>
+            </div>
+          </li>
+        </ol>
+        <div class="install-footer reveal">
+          <p>
+            Allow about 1 GB for the app and its first local model. Meeting
+            recording also asks for Microphone permission when you use it.
+          </p>
+          <a class="button primary" href="/download/Whisper-Studio.dmg" download
+            ><svg
+              class="icon"
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="none"
+            >
+              <use href="./icons.svg#apple" /></svg
+            >Download for Mac</a
+          >
+        </div>
+      </section>
       <section class="privacy wrap section" id="privacy">
         <div class="privacy-art reveal" aria-hidden="true">
           <img
@@ -348,9 +472,9 @@
               </svg>
             </summary>
             <p>
-              Open the DMG and drag Whisper Studio into Applications. The
-              current release is not yet Apple-notarized, so macOS may require
-              approval in System Settings, Privacy &amp; Security.
+              Open the DMG and drag Whisper Studio into Applications. If macOS
+              blocks the first launch, follow the
+              <a href="#install">beta installation guide</a> above.
             </p>
           </details>
         </div>
