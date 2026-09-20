@@ -369,7 +369,8 @@ def test_paths_confined(tmp_path):
         store.path("sources", "symlink")
 
 
-def test_native_recording_becomes_completed_live_transcript(tmp_path):
+@pytest.mark.parametrize("recording_name, expected_title", [("Weekly planning", "Weekly planning"), ("Meeting recording", "Ship the live meeting view")])
+def test_native_recording_becomes_completed_live_transcript(tmp_path, recording_name, expected_title):
     command = [sys.executable, str(Path(__file__).parent / "fake_native_bridge.py")]
     app = create_app(tmp_path, worker=False, native_command=command)
     with TestClient(app, headers={"X-Studio-Request": "1"}) as client:
@@ -377,7 +378,7 @@ def test_native_recording_becomes_completed_live_transcript(tmp_path):
         assert environment["native"]["recording"] is True
         started = client.post(
             "/api/recordings",
-            json={"name": "Weekly planning", "language": "en", "template": "standup"},
+            json={"name": recording_name, "language": "en", "template": "standup"},
         )
         assert started.status_code == 201
         assert started.json()["state"] == "recording"
@@ -396,7 +397,7 @@ def test_native_recording_becomes_completed_live_transcript(tmp_path):
         assert client.post("/api/recordings", json={"name": "Another"}).status_code == 409
         stopped = client.post("/api/recordings/stop")
         assert stopped.status_code == 201
-        assert stopped.json()["title"] == "Weekly planning"
+        assert stopped.json()["title"] == expected_title
         assert stopped.json()["state"] == "completed"
         assert stopped.json()["duration"] == 1
         transcript = client.get(f"/api/jobs/{stopped.json()['id']}").json()

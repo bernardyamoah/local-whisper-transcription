@@ -70,6 +70,43 @@ def test_model_command_uses_frozen_executable(monkeypatch):
     assert macos.model_command() == ["/Applications/Whisper Studio", "--model-download"]
 
 
+def test_finish_window_material_restores_shadow_and_transparent_titlebar():
+    calls = []
+
+    class WebView:
+        def setUnderPageBackgroundColor_(self, value):
+            calls.append(("webview", value))
+
+    class NativeWindow:
+        def setOpaque_(self, value):
+            calls.append(("opaque", value))
+
+        def setBackgroundColor_(self, value):
+            calls.append(("background", value))
+
+        def setHasShadow_(self, value):
+            calls.append(("shadow", value))
+
+        def setTitlebarAppearsTransparent_(self, value):
+            calls.append(("titlebar", value))
+
+        def contentView(self):
+            return WebView()
+
+    window = type("Window", (), {"native": NativeWindow()})()
+    clear = object()
+
+    macos.finish_window_material(window, clear)
+
+    assert calls == [
+        ("opaque", False),
+        ("background", clear),
+        ("shadow", True),
+        ("titlebar", True),
+        ("webview", clear),
+    ]
+
+
 def test_main_dispatches_model_download(monkeypatch):
     observed = []
     monkeypatch.setattr(sys, "argv", ["Whisper Studio", "--model-download", "small", "/tmp/model"])

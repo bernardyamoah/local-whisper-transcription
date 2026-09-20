@@ -397,7 +397,7 @@ wheels = [
 
 [[package]]
 name = "local-whisper-transcription"
-version = "0.4.21"
+version = "0.5.19"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },

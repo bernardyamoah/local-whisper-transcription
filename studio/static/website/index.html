@@ -15,7 +15,7 @@
     />
     <meta
       property="og:description"
-      content="Audio to text. Entirely on your Mac."
+      content="Audio, video, and meetings to text. Native on your Mac."
     />
     <meta
       property="og:image"
@@ -47,8 +47,8 @@
         ></a
       >
       <nav aria-label="Main navigation">
-        <a href="#studio">The studio</a><a href="#privacy">Privacy</a
-        ><a href="#questions">Questions</a>
+        <a href="#studio">The studio</a><a href="#demo">Demo</a
+        ><a href="#install">Install</a><a href="#privacy">Privacy</a>
       </nav>
       <a class="button small" href="/download/Whisper-Studio.dmg" download
         >Download for Mac
@@ -63,7 +63,7 @@
           <h1 class="reveal">Every word.<br /><span>Worth keeping.</span></h1>
           <p class="intro reveal">
             Turn your recordings into words you can work with.<br />
-            Beautifully simple. Entirely on your Mac.
+            Native on your Mac. Local or cloud. Your choice.
           </p>
           <div class="hero-actions reveal">
             <a
@@ -81,32 +81,19 @@
             >
           </div>
           <p class="compatibility reveal">
-            Free to use <span aria-hidden="true">/</span> Made for Apple silicon
+            Version 0.5.19 <span aria-hidden="true">/</span> macOS 15+ · Apple
+            silicon
           </p>
         </div>
         <div class="showcase reveal" id="studio">
           <div class="showcase-glow" aria-hidden="true"></div>
           <div class="app-window">
-            <div class="window-bar">
-              <div class="traffic" aria-hidden="true">
-                <i></i><i></i><i></i>
-              </div>
-              <span>Whisper Studio</span
-              ><svg
-                class="icon"
-                aria-hidden="true"
-                viewBox="0 0 24 24"
-                fill="none"
-              >
-                <use href="./icons.svg#shield" />
-              </svg>
-            </div>
             <img
               class="studio-screenshot"
-              src="./media/studio-transcript-v015.webp"
-              width="1920"
-              height="1333"
-              alt="Whisper Studio meeting notes and transcript editor with named speakers, chapters, and synced playback"
+              src="./media/studio-native-v0517.webp"
+              width="2016"
+              height="1236"
+              alt="Whisper Studio meeting notes and transcript editor with speakers, bookmarks, and synced playback"
               fetchpriority="high"
             />
           </div>
@@ -148,13 +135,16 @@
       >
         <div class="reading-copy reveal">
           <h2 id="reading-title">
-            Stay with<br /><span>the conversation.</span>
+            Start with<br /><span>your own voice.</span>
           </h2>
-          <p>A place for every word.<br />Listen back. Make it yours.</p>
+          <p>
+            Speak a thought. Watch it take shape.<br />A live welcome, with
+            optional voice and a cinematic score.
+          </p>
         </div>
         <div class="reading-sheet reveal">
           <div class="reading-toolbar">
-            <span>Creative direction</span>
+            <span>A glimpse of your welcome</span>
           </div>
           <div class="reading-row" data-reading-row="0">
             <span>00:00</span>
@@ -162,7 +152,7 @@
           </div>
           <div class="reading-row" data-reading-row="1">
             <span>00:01</span>
-            <p>Give yours a little space.</p>
+            <p>Make it something worth keeping.</p>
           </div>
           <div class="reading-track" aria-hidden="true"><i></i></div>
         </div>
@@ -227,10 +217,135 @@
             <div class="feature-copy">
               <h3>Take it from here.</h3>
               <p>
-                Clean text or timed subtitles. Ready for whatever comes next.
+                Markdown, PDF, DOCX, subtitles, and more. Send notes to Notion
+                or Obsidian.
               </p>
             </div>
           </article>
+        </div>
+      </section>
+      <section class="demo-guide wrap section" id="demo">
+        <div class="section-heading reveal">
+          <h2>From recording<br /><span>to useful words.</span></h2>
+          <p>
+            A simple path through Whisper Studio.<br />Your first transcript
+            only takes a few steps.
+          </p>
+        </div>
+        <div class="demo-video reveal">
+          <video
+            controls
+            playsinline
+            preload="metadata"
+            poster="./media/demo-poster.jpg"
+            aria-label="Whisper Studio walkthrough from live meeting recording to a finished transcript"
+          >
+            <source src="./media/whisper-studio-demo.mp4" type="video/mp4" />
+            Your browser does not support embedded video.
+          </video>
+        </div>
+        <ol class="guide-steps demo-steps">
+          <li class="reveal">
+            <span class="step-number">01</span>
+            <div>
+              <h3>Add or record</h3>
+              <p>
+                Drop in audio or video. Record a meeting with a floating control
+                that stays close.
+              </p>
+            </div>
+          </li>
+          <li class="reveal">
+            <span class="step-number">02</span>
+            <div>
+              <h3>Make it yours</h3>
+              <p>
+                Choose an on-device model or connect Deepgram. Try your voice
+                during setup.
+              </p>
+            </div>
+          </li>
+          <li class="reveal">
+            <span class="step-number">03</span>
+            <div>
+              <h3>Follow along</h3>
+              <p>
+                Read the live transcript while recording and scroll back without
+                losing your place.
+              </p>
+            </div>
+          </li>
+          <li class="reveal">
+            <span class="step-number">04</span>
+            <div>
+              <h3>Polish and export</h3>
+              <p>
+                Find a moment, save a bookmark, then export the transcript,
+                meeting notes, or action items.
+              </p>
+            </div>
+          </li>
+        </ol>
+      </section>
+      <section class="install-guide wrap section" id="install">
+        <div class="install-heading reveal">
+          <h2>Set up your studio.</h2>
+          <p>
+            This preview is not Apple-notarized yet, so macOS needs one extra
+            approval on first launch.
+          </p>
+        </div>
+        <ol class="guide-steps install-steps">
+          <li class="reveal">
+            <span class="step-number">01</span>
+            <div>
+              <h3>Download the DMG</h3>
+              <p>Use the official download on this page, then open the file.</p>
+            </div>
+          </li>
+          <li class="reveal">
+            <span class="step-number">02</span>
+            <div>
+              <h3>Move it to Applications</h3>
+              <p>Drag Whisper Studio into the Applications folder.</p>
+            </div>
+          </li>
+          <li class="reveal">
+            <span class="step-number">03</span>
+            <div>
+              <h3>Try to open it once</h3>
+              <p>
+                Open Whisper Studio from Applications. If macOS blocks it, close
+                the warning.
+              </p>
+            </div>
+          </li>
+          <li class="reveal">
+            <span class="step-number">04</span>
+            <div>
+              <h3>Choose Open Anyway</h3>
+              <p>
+                Go to System Settings → Privacy &amp; Security, scroll to
+                Security, then choose Open Anyway and confirm.
+              </p>
+            </div>
+          </li>
+        </ol>
+        <div class="install-footer reveal">
+          <p>
+            Allow about 1 GB for the app and its first local model. Meeting
+            recording also asks for Microphone permission when you use it.
+          </p>
+          <a class="button primary" href="/download/Whisper-Studio.dmg" download
+            ><svg
+              class="icon"
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="none"
+            >
+              <use href="./icons.svg#apple" /></svg
+            >Download for Mac</a
+          >
         </div>
       </section>
       <section class="privacy wrap section" id="privacy">
@@ -297,8 +412,8 @@
               </svg>
             </summary>
             <p>
-              The current installer is built for Apple silicon Macs: M1 and
-              later.
+              Version 0.5.19 requires macOS 15 or later and an Apple silicon Mac
+              (M1 or newer).
             </p>
           </details>
           <details>
@@ -332,7 +447,9 @@
             </summary>
             <p>
               Recordings and transcripts are saved locally on your Mac. You can
-              manage them in your library and export text or subtitles.
+              manage them in your library and export documents, subtitles, or a
+              transcript-and-media bundle. Connected cloud services are
+              optional.
             </p>
           </details>
           <details>
@@ -348,9 +465,9 @@
               </svg>
             </summary>
             <p>
-              Open the DMG and drag Whisper Studio into Applications. The
-              current release is not yet Apple-notarized, so macOS may require
-              approval in System Settings, Privacy &amp; Security.
+              Open the DMG and drag Whisper Studio into Applications. If macOS
+              blocks the first launch, follow the
+              <a href="#install">beta installation guide</a> above.
             </p>
           </details>
         </div>
@@ -364,7 +481,7 @@
             <use href="./icons.svg#apple" /></svg
           >Download for Mac</a
         >
-        <p class="compatibility">Your next good thought is waiting.</p>
+        <p class="compatibility">Version 0.5.19 · macOS 15+ · Apple silicon</p>
       </section>
     </main>
     <footer class="wrap">

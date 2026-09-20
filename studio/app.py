@@ -220,13 +220,15 @@ def create_app(
 
         disk = shutil.disk_usage(store.root)
         ffmpeg = shutil.which("ffmpeg")
-        version = (
-            subprocess.run(
-                [ffmpeg, "-version"], capture_output=True, text=True, timeout=5
-            ).stdout.splitlines()[0]
-            if ffmpeg
-            else None
-        )
+        version = None
+        if ffmpeg:
+            try:
+                result = subprocess.run([ffmpeg, "-version"], capture_output=True, text=True, timeout=5)
+                lines = result.stdout.splitlines()
+                if result.returncode == 0 and lines:
+                    version = lines[0]
+            except (OSError, subprocess.TimeoutExpired):
+                pass
         with store.connect() as db:
             healthy = db.execute("PRAGMA quick_check").fetchone()[0] == "ok"
         return {
@@ -653,6 +655,8 @@ def create_app(
                     "UPDATE segments SET speaker_name=? WHERE job_id=? AND speaker=?",
                     (speaker.name.strip() or None, identifier, speaker.speaker),
                 )
+            if payload.title and payload.title != job["title"]:
+                db.execute("UPDATE jobs SET title_automatic=0 WHERE id=?", (identifier,))
             db.execute(
                 "UPDATE jobs SET revision=revision+1, title=?, updated=? WHERE id=?",
                 (payload.title or job["title"], time.time(), identifier),

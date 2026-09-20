@@ -413,7 +413,7 @@ h3 {
 }
 .step-number {
   padding-top: 4px;
-  color: #7b897f;
+  color: #5f6d63;
   font-size: 11px;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.08em;
@@ -1375,5 +1375,23 @@ footer {
   }
   .reading-row {
     transition: none;
+  }
+}
+
+/* The welcome preview brings the next thought into focus. */
+.reading-row p {
+  transition:
+    filter 450ms ease,
+    opacity 450ms ease;
+}
+.reading-sheet.is-animated .reading-row:not(.is-current) p {
+  filter: blur(3px);
+  opacity: 0.38;
+}
+@media (prefers-reduced-motion: reduce) {
+  .reading-row p {
+    transition: none;
+    filter: none;
+    opacity: 1;
   }
 }

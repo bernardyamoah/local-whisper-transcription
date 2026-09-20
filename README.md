@@ -22,7 +22,9 @@ Open **http://127.0.0.1:8765**. On a fresh installation, the setup flow opens au
 
 ## macOS app
 
-Build the native macOS host on a Mac with:
+Whisper Studio 0.5 uses a native SwiftUI interface (macOS 15+), with the existing local Python transcription engine bundled as a background service. Your SQLite library, models, and provider settings stay in the same Application Support folder.
+
+Build on a Mac with Xcode / Swift 6.2 or later:
 
 ```sh
 xcode-select --install

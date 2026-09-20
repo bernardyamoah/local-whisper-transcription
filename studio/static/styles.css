@@ -4675,7 +4675,7 @@ h3 {
   padding: 2px 5px;
   border-radius: 5px;
   background: #0a84ff17;
-  color: #0066cc;
+  color: #005dbb;
   font-size: 9px;
   font-weight: 550;
 }
@@ -6026,4 +6026,290 @@ h3 {
   }
 }
 .appearance-gallery .appearance-illustration,
-.appearance-gallery .appearance-choice-label { pointer-events: none; }
+.appearance-gallery .appearance-choice-label {
+  pointer-events: none;
+}
+
+/* Ambient first-run moment. The expressive surface is limited to the rare
+   introduction; setup controls remain familiar and still. */
+.welcome-page[data-step="0"] {
+  grid-template-columns: 1fr;
+  background:
+    radial-gradient(circle at 50% 36%, #d87e5f17 0, transparent 34%),
+    radial-gradient(circle at 50% 88%, #7e9d9112 0, transparent 30%), #f6f6f3;
+}
+.welcome-page[data-step="0"] .welcome-sidebar {
+  display: none;
+}
+.welcome-page[data-step="0"] .welcome-main {
+  background: transparent;
+}
+.welcome-page[data-step="0"] .welcome-toolbar {
+  position: relative;
+  z-index: 1;
+  padding-inline: 28px;
+}
+.welcome-page[data-step="0"] .welcome-toolbar > span {
+  opacity: 0;
+}
+.welcome-page[data-step="0"] .welcome-content {
+  padding-block: 18px 32px;
+}
+.welcome-page[data-step="0"] .welcome-content-scroll {
+  width: min(100%, 720px);
+}
+.welcome-page[data-step="0"] .welcome-orb {
+  width: 196px;
+  height: 196px;
+  margin-bottom: 14px;
+  filter: drop-shadow(0 18px 40px #d87e5f1f);
+}
+.welcome-kicker {
+  margin: 0 0 12px;
+  color: #8a624f;
+  font-size: 11px;
+  font-weight: 620;
+  letter-spacing: 0.06em;
+  text-align: center;
+  text-transform: uppercase;
+}
+.welcome-page[data-step="0"] .welcome-content h1 {
+  margin-bottom: 14px;
+  font-size: clamp(32px, 4vw, 44px);
+  font-weight: 640;
+  letter-spacing: -0.035em;
+}
+.welcome-page[data-step="0"] .welcome-intro > p {
+  max-width: 46ch;
+  font-size: 15px;
+  line-height: 1.55;
+}
+.welcome-page[data-step="0"] .welcome-capabilities {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 34px;
+  border: 0;
+  border-block: 1px solid #00000010;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.welcome-page[data-step="0"] .welcome-capabilities span {
+  min-height: 68px;
+  padding: 12px 18px;
+  justify-content: center;
+  color: #515154;
+  font-size: 11px;
+  line-height: 1.4;
+  text-align: left;
+}
+.welcome-page[data-step="0"] .welcome-capabilities span + span {
+  border-top: 0;
+  border-left: 1px solid #00000010;
+}
+.welcome-page[data-step="0"] .welcome-actions {
+  padding: 14px 28px 24px;
+  border-top: 0;
+  background: transparent;
+  backdrop-filter: none;
+}
+.welcome-page[data-step="0"] .welcome-actions [data-slot="button"]:last-child {
+  min-width: 112px;
+  border-radius: 999px;
+  background: #252827;
+  box-shadow:
+    inset 0 0 0 0.5px #ffffff2b,
+    0 8px 24px #00000018;
+}
+.welcome-page[data-step="0"]
+  .welcome-actions
+  [data-slot="button"]:last-child:hover {
+  background: #171918;
+}
+.dark .welcome-page[data-step="0"] {
+  background:
+    radial-gradient(circle at 50% 36%, #d87e5f1c 0, transparent 36%),
+    radial-gradient(circle at 50% 88%, #7e9d9112 0, transparent 30%), #1e1e1f;
+}
+.dark .welcome-kicker {
+  color: #d59678;
+}
+.dark .welcome-page[data-step="0"] .welcome-capabilities {
+  border-color: #ffffff12;
+  background: transparent;
+}
+.dark .welcome-page[data-step="0"] .welcome-capabilities span {
+  color: #c7c7cc;
+}
+.dark .welcome-page[data-step="0"] .welcome-capabilities span + span {
+  border-left-color: #ffffff12;
+}
+
+/* Recording presence: the orb acts as ambient status, while the transcript
+   remains a stable reading surface. */
+.capture-stage[data-recording="true"] .capture-orb {
+  width: 320px;
+  height: 320px;
+  margin-inline: auto;
+  filter: drop-shadow(0 20px 48px #d87e5f20);
+}
+.recording-session[data-expanded="false"] .session-identity {
+  justify-content: center;
+}
+.recording-session[data-expanded="false"] .recording-live {
+  font-size: 13px;
+  letter-spacing: -0.01em;
+}
+.recording-session[data-expanded="false"] .session-timer {
+  margin-top: -2px;
+  font-size: 46px;
+  font-weight: 420;
+  letter-spacing: -0.045em;
+}
+.recording-session[data-expanded="false"] .session-expand {
+  color: color-mix(in srgb, var(--studio-muted) 86%, transparent);
+}
+@media (max-width: 700px) {
+  .welcome-page[data-step="0"] .welcome-capabilities {
+    grid-template-columns: 1fr;
+    width: min(100%, 420px);
+  }
+  .welcome-page[data-step="0"] .welcome-capabilities span {
+    min-height: 46px;
+    justify-content: flex-start;
+  }
+  .welcome-page[data-step="0"] .welcome-capabilities span + span {
+    border-top: 1px solid #00000010;
+    border-left: 0;
+  }
+  .dark .welcome-page[data-step="0"] .welcome-capabilities span + span {
+    border-top-color: #ffffff12;
+  }
+  .welcome-page[data-step="0"] .welcome-orb {
+    width: 156px;
+    height: 156px;
+  }
+  .welcome-page[data-step="0"] .welcome-orb [data-slot="matrix-orb"] {
+    transform: scale(0.8);
+    transform-origin: top left;
+  }
+  .capture-stage[data-recording="true"] .capture-orb {
+    width: 220px;
+    height: 220px;
+  }
+  .capture-stage[data-recording="true"] .capture-orb [data-slot="matrix-orb"] {
+    transform: scale(0.6875);
+    transform-origin: top left;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .welcome-page[data-step="0"] .welcome-orb,
+  .capture-stage[data-recording="true"] .capture-orb {
+    filter: none;
+  }
+}
+
+/* Native window material. Cocoa supplies the vibrancy behind this layer; the
+   UI keeps enough tint for text to remain legible over changing desktops. */
+html,
+body {
+  background: transparent;
+}
+.studio-shell {
+  min-height: 100svh;
+  background: color-mix(in srgb, var(--paper) 68%, transparent);
+  -webkit-backdrop-filter: blur(30px) saturate(125%);
+  backdrop-filter: blur(30px) saturate(125%);
+}
+.rail {
+  background: color-mix(in srgb, var(--paper) 62%, transparent);
+  -webkit-backdrop-filter: blur(36px) saturate(145%);
+  backdrop-filter: blur(36px) saturate(145%);
+}
+.main-shell {
+  background: transparent;
+}
+.welcome-page {
+  background: color-mix(in srgb, var(--paper) 68%, transparent);
+}
+.welcome-main {
+  background: transparent;
+}
+.welcome-sidebar,
+.welcome-actions {
+  background: color-mix(in srgb, var(--paper) 62%, transparent);
+  backdrop-filter: blur(32px) saturate(140%);
+}
+.welcome-page[data-step="0"] {
+  background:
+    radial-gradient(circle at 50% 36%, #d87e5f17 0, transparent 34%),
+    radial-gradient(circle at 50% 88%, #7e9d9112 0, transparent 30%),
+    color-mix(in srgb, var(--paper) 66%, transparent);
+}
+.welcome-page[data-step="0"] .welcome-main,
+.welcome-page[data-step="0"] .welcome-actions {
+  background: transparent;
+}
+.dark .studio-shell {
+  background: color-mix(in srgb, var(--paper) 72%, transparent);
+}
+.dark .rail {
+  background: color-mix(in srgb, var(--paper) 68%, transparent);
+}
+.dark .main-shell {
+  background: transparent;
+}
+.dark .welcome-page {
+  background: color-mix(in srgb, var(--paper) 74%, transparent);
+}
+.dark .welcome-main {
+  background: transparent;
+}
+.dark .welcome-sidebar,
+.dark .welcome-actions {
+  background: color-mix(in srgb, var(--paper) 74%, transparent);
+}
+.dark .welcome-page[data-step="0"] {
+  background:
+    radial-gradient(circle at 50% 36%, #d87e5f1c 0, transparent 36%),
+    radial-gradient(circle at 50% 88%, #7e9d9112 0, transparent 30%),
+    color-mix(in srgb, var(--paper) 78%, transparent);
+}
+@supports not (backdrop-filter: blur(1px)) {
+  .studio-shell,
+  .rail,
+  .main-shell,
+  .welcome-page,
+  .welcome-page[data-step="0"],
+  .welcome-page[data-step="0"] .welcome-main,
+  .welcome-page[data-step="0"] .welcome-actions,
+  .welcome-main,
+  .welcome-sidebar,
+  .welcome-actions {
+    background: var(--paper);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .studio-shell,
+  .rail,
+  .main-shell,
+  .welcome-page,
+  .welcome-page[data-step="0"],
+  .welcome-page[data-step="0"] .welcome-main,
+  .welcome-page[data-step="0"] .welcome-actions,
+  .welcome-main,
+  .welcome-sidebar,
+  .welcome-actions,
+  .dark .studio-shell,
+  .dark .rail,
+  .dark .main-shell,
+  .dark .welcome-page,
+  .dark .welcome-page[data-step="0"],
+  .dark .welcome-page[data-step="0"] .welcome-main,
+  .dark .welcome-page[data-step="0"] .welcome-actions,
+  .dark .welcome-main,
+  .dark .welcome-sidebar,
+  .dark .welcome-actions {
+    background: var(--paper);
+    backdrop-filter: none;
+  }
+}

@@ -11,6 +11,8 @@ import threading
 import time
 import uuid
 
+from studio.titles import automatic_title_requested, apply_transcript_title
+
 TRANSITIONS = {
     "queued": {"preparing", "cancelled"},
     "preparing": {"transcribing", "cancelling", "failed", "interrupted"},
@@ -96,6 +98,7 @@ class Orchestrator:
                     now,
                 ),
             )
+            db.execute("UPDATE jobs SET title_automatic=? WHERE id=?", (int(automatic_title_requested(title, media["name"])), identifier))
             db.execute("INSERT INTO transitions(job_id,state,at) VALUES(?,?,?)", (identifier, "queued", now))
         return self.store.job(identifier)
 
@@ -150,6 +153,8 @@ class Orchestrator:
                     now,
                 ),
             )
+            db.execute("UPDATE jobs SET title_automatic=? WHERE id=?", (int(automatic_title_requested(title, "")), identifier))
+            apply_transcript_title(db, identifier, segments)
             for sequence, segment in enumerate(segments):
                 source = segment.get("source", "Meeting")
                 if source not in sources:
@@ -345,6 +350,7 @@ class Orchestrator:
                             json.dumps(result.get("topics", [])),
                         ),
                     )
+                    apply_transcript_title(db, identifier, result["segments"], result.get("topics", []))
                     self.transition(
                         db,
                         identifier,

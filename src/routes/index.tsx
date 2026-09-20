@@ -347,7 +347,11 @@ function NewTranscription() {
                 layout
                 aria-hidden="true"
                 animate={{ scale: dragging ? 1.08 : 1, y: media ? -8 : 0 }}
-                transition={{ duration: reduced ? 0 : 0.3, ease: "easeOut" }}
+                transition={{
+                  type: "spring",
+                  bounce: 0,
+                  duration: reduced ? 0 : 0.4,
+                }}
               >
                 <MatrixOrb
                   state={
@@ -359,7 +363,7 @@ function NewTranscription() {
                           ? "listening"
                           : "idle"
                   }
-                  size={220}
+                  size={recording.state === "recording" ? 320 : 220}
                   color="#d87e5f"
                   labels={{ idle: "", listening: "", thinking: "" }}
                 />
@@ -375,7 +379,11 @@ function NewTranscription() {
                   initial={{ opacity: 0, y: reduced ? 0 : 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: reduced ? 0 : -8 }}
-                  transition={{ duration: reduced ? 0 : 0.2 }}
+                  transition={{
+                    type: "spring",
+                    bounce: 0,
+                    duration: reduced ? 0 : 0.4,
+                  }}
                 >
                   <div className="session-toolbar">
                     <Button
@@ -430,7 +438,11 @@ function NewTranscription() {
                       aria-label="Live transcript"
                       onScroll={(event) => {
                         const feed = event.currentTarget;
-                        const following = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 24;
+                        const following =
+                          feed.scrollHeight -
+                            feed.scrollTop -
+                            feed.clientHeight <
+                          24;
                         followLive.current = following;
                         setFollowingLive(following);
                       }}

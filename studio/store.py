@@ -87,6 +87,10 @@ class Store:
                 db.execute("ALTER TABLE bookmarks ADD COLUMN source TEXT NOT NULL DEFAULT 'manual'")
                 db.execute("ALTER TABLE bookmarks ADD COLUMN confidence REAL")
                 db.execute("PRAGMA user_version=6")
+                version = 6
+            if version < 7:
+                db.execute("ALTER TABLE jobs ADD COLUMN title_automatic INTEGER NOT NULL DEFAULT 0")
+                db.execute("PRAGMA user_version=7")
 
     @contextmanager
     def connect(self):

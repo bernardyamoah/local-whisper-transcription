@@ -189,9 +189,19 @@ function Welcome() {
         </header>
         <section className="welcome-content">
           <div className="welcome-content-scroll">
-            <div className="welcome-orb" aria-hidden="true">
+            <motion.div
+              className="welcome-orb"
+              aria-hidden="true"
+              initial={{ opacity: 0, scale: reduced ? 1 : 0.94 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{
+                type: "spring",
+                bounce: 0,
+                duration: reduced ? 0 : 0.5,
+              }}
+            >
               <MatrixOrb
-                size={116}
+                size={step === 0 ? 196 : 116}
                 dots={11}
                 color="#d87e5f"
                 state={
@@ -203,7 +213,12 @@ function Welcome() {
                 }
                 labels={{ idle: "", thinking: "", listening: "" }}
               />
-            </div>
+            </motion.div>
+            {step === 0 && (
+              <p className="welcome-kicker">
+                Private transcription, on your Mac
+              </p>
+            )}
             <h1 ref={title} tabIndex={-1}>
               {headings[step]}
             </h1>
@@ -218,14 +233,14 @@ function Welcome() {
                 {step === 0 && (
                   <div className="welcome-intro">
                     <p>
-                      Turn recordings into editable transcripts privately on
-                      this Mac.
+                      Your recordings become clear, editable words. Nothing
+                      needs to leave this Mac.
                     </p>
                     <div className="welcome-capabilities">
                       {[
-                        "Process recordings on-device",
-                        "Edit and search every transcript",
-                        "Export in common document formats",
+                        "Record or bring your own audio",
+                        "Follow the transcript as people speak",
+                        "Keep, search, and export what matters",
                       ].map((capability) => (
                         <span key={capability}>
                           <HugeiconsIcon icon={Tick02Icon} size={14} />
@@ -234,7 +249,7 @@ function Welcome() {
                       ))}
                     </div>
                     <p className="welcome-note">
-                      Setup downloads one transcription model for offline use.
+                      We’ll prepare one offline model. You can change it later.
                     </p>
                   </div>
                 )}

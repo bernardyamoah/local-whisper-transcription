@@ -1,17 +1,49 @@
 const DOWNLOAD_PATH = "/download/Whisper-Studio.dmg";
-const DOWNLOAD_KEY = "releases/Whisper-Studio-0.4.20-arm64.dmg";
+const RELEASE_PATH = "/api/releases/latest";
+const RELEASE_PREFIX = "releases/Whisper-Studio-";
+const RELEASE_PATTERN = /^releases\/Whisper-Studio-(\d+\.\d+\.\d+)-arm64\.dmg$/;
 
-function downloadHeaders(object) {
+function versionParts(version) {
+  return version.split(".").map(Number);
+}
+
+function compareVersions(left, right) {
+  const a = versionParts(left);
+  const b = versionParts(right);
+  for (let index = 0; index < Math.max(a.length, b.length); index += 1) {
+    const difference = (a[index] || 0) - (b[index] || 0);
+    if (difference) return difference;
+  }
+  return 0;
+}
+
+function checksumHex(value) {
+  if (!value) return null;
+  return [...new Uint8Array(value)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function latestRelease(env) {
+  const listing = await env.DOWNLOADS.list({ prefix: RELEASE_PREFIX });
+  const releases = listing.objects
+    .map((object) => {
+      const match = object.key.match(RELEASE_PATTERN);
+      return match ? { object, version: match[1] } : null;
+    })
+    .filter(Boolean)
+    .sort((left, right) => compareVersions(right.version, left.version));
+  return releases[0] || null;
+}
+
+function downloadHeaders(object, filename) {
   const headers = new Headers();
   object.writeHttpMetadata(headers);
   headers.set("etag", object.httpEtag);
   headers.set("accept-ranges", "bytes");
-  headers.set("cache-control", "public, max-age=3600");
+  headers.set("cache-control", "no-cache");
   headers.set("content-type", "application/x-apple-diskimage");
-  headers.set(
-    "content-disposition",
-    'attachment; filename="Whisper-Studio-0.4.20-arm64.dmg"',
-  );
+  headers.set("content-disposition", `attachment; filename="${filename}"`);
   headers.set("x-content-type-options", "nosniff");
   return headers;
 }
@@ -19,6 +51,34 @@ function downloadHeaders(object) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (url.pathname === RELEASE_PATH) {
+      if (request.method !== "GET") {
+        return new Response("Method not allowed", {
+          status: 405,
+          headers: { allow: "GET" },
+        });
+      }
+      const release = await latestRelease(env);
+      if (!release)
+        return new Response("No release available", { status: 404 });
+      const filename = release.object.key.split("/").pop();
+      return Response.json(
+        {
+          version: release.version,
+          download_url: new URL(DOWNLOAD_PATH, request.url).toString(),
+          filename,
+          size_bytes: release.object.size,
+          sha256: checksumHex(release.object.checksums?.sha256),
+          published_at: release.object.uploaded?.toISOString() || null,
+        },
+        {
+          headers: {
+            "cache-control": "public, max-age=300",
+            "x-content-type-options": "nosniff",
+          },
+        },
+      );
+    }
     if (url.pathname !== DOWNLOAD_PATH) return env.ASSETS.fetch(request);
     if (request.method !== "GET" && request.method !== "HEAD") {
       return new Response("Method not allowed", {
@@ -27,9 +87,12 @@ export default {
       });
     }
 
+    const release = await latestRelease(env);
+    if (!release) return new Response("Installer unavailable", { status: 404 });
+    const filename = release.object.key.split("/").pop();
     let object;
     try {
-      object = await env.DOWNLOADS.get(DOWNLOAD_KEY, {
+      object = await env.DOWNLOADS.get(release.object.key, {
         range: request.headers,
       });
     } catch {
@@ -40,7 +103,7 @@ export default {
     }
     if (!object) return new Response("Installer unavailable", { status: 404 });
 
-    const headers = downloadHeaders(object);
+    const headers = downloadHeaders(object, filename);
     if (request.headers.has("range") && object.range) {
       const length = Math.min(
         object.range.length ?? object.range.suffix ?? object.size,

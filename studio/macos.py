@@ -213,6 +213,24 @@ def run_model_download() -> None:
     download(*sys.argv[2:])
 
 
+def finish_window_material(window, clear_color=None) -> None:
+    """Apply transparent Cocoa materials without WebKit private APIs."""
+    if clear_color is None:
+        from AppKit import NSColor
+
+        clear_color = NSColor.clearColor()
+    native = window.native
+    if native is None:
+        return
+    native.setOpaque_(False)
+    native.setBackgroundColor_(clear_color)
+    native.setHasShadow_(True)
+    native.setTitlebarAppearsTransparent_(True)
+    webview = native.contentView()
+    if hasattr(webview, "setUnderPageBackgroundColor_"):
+        webview.setUnderPageBackgroundColor_(clear_color)
+
+
 def run_desktop() -> None:
     import webview
 
@@ -256,8 +274,10 @@ def run_desktop() -> None:
                 height=820,
                 min_size=(900, 640),
                 background_color="#f7f4ee",
+                vibrancy=True,
                 text_select=True,
             )
+            window.events.loaded += lambda: finish_window_material(window)
             window.events.closed += lambda: setattr(server, "should_exit", True)
             webview.start(gui="cocoa", debug=os.getenv("STUDIO_DEBUG") == "1")
         finally:

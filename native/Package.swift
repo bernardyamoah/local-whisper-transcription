@@ -7,9 +7,12 @@ let package = Package(
     platforms: [.macOS(.v15)],
     products: [
         .executable(name: "whisper-studio-audio-bridge", targets: ["AudioBridge"]),
+        .executable(name: "WhisperStudio", targets: ["WhisperStudio"]),
     ],
     targets: [
-        .executableTarget(name: "AudioBridge"),
+        .executableTarget(name: "AudioBridge", swiftSettings: [.swiftLanguageMode(.v5)]),
+        .executableTarget(name: "WhisperStudio", resources: [.copy("Resources/BrandIcons"), .copy("Resources/Welcome")]),
+        .testTarget(name: "WhisperStudioTests", dependencies: ["WhisperStudio"]),
     ],
-    swiftLanguageModes: [.v5]
+    swiftLanguageModes: [.v6]
 )
