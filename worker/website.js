@@ -62,10 +62,14 @@ export default {
       if (!release)
         return new Response("No release available", { status: 404 });
       const filename = release.object.key.split("/").pop();
+      const downloadURL = new URL(DOWNLOAD_PATH, request.url).toString();
       return Response.json(
         {
           version: release.version,
-          download_url: new URL(DOWNLOAD_PATH, request.url).toString(),
+          download_url: downloadURL,
+          // Updater 0.5.19 used convertFromSnakeCase, which cannot map the
+          // URL acronym in download_url to the downloadURL Swift property.
+          downloadURL,
           filename,
           size_bytes: release.object.size,
           sha256: checksumHex(release.object.checksums?.sha256),
