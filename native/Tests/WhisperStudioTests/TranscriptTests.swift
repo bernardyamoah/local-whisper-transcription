@@ -41,7 +41,8 @@ struct TranscriptTests {
         #expect(try StudioAPI.decoder.decode(Preferences.self, from: data) == preferences)
     }
     @Test @MainActor func apiURLsRemainOnLoopback() throws {
-        let api = StudioAPI(base: try #require(URL(string: "http://127.0.0.1:5000")))
+        let api = StudioAPI(base: try #require(URL(string: "http://127.0.0.1:5000/")))
+        #expect(api.url("environment").absoluteString == "http://127.0.0.1:5000/api/environment")
         #expect(api.url("jobs?q=a%26b&limit=100").absoluteString == "http://127.0.0.1:5000/api/jobs?q=a%26b&limit=100")
     }
     @Test @MainActor func releaseManifestDecodesServerKeysAndMissingChecksum() throws {
