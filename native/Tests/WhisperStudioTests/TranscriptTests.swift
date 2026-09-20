@@ -44,4 +44,13 @@ struct TranscriptTests {
         let api = StudioAPI(base: try #require(URL(string: "http://127.0.0.1:5000")))
         #expect(api.url("jobs?q=a%26b&limit=100").absoluteString == "http://127.0.0.1:5000/api/jobs?q=a%26b&limit=100")
     }
+    @Test @MainActor func releaseManifestDecodesServerKeysAndMissingChecksum() throws {
+        let data = Data(#"{"version":"0.5.20","download_url":"https://transcribe.bernardyamoah.com/download/Whisper-Studio.dmg","filename":"Whisper-Studio-0.5.20-arm64.dmg","size_bytes":162337467,"sha256":null,"published_at":"2026-09-20T19:39:55Z"}"#.utf8)
+        let release = try AppUpdateController.decoder.decode(AppRelease.self, from: data)
+        #expect(release.version == "0.5.20")
+        #expect(release.downloadURL.absoluteString == "https://transcribe.bernardyamoah.com/download/Whisper-Studio.dmg")
+        #expect(release.sizeBytes == 162_337_467)
+        #expect(release.sha256 == nil)
+        #expect(release.publishedAt != nil)
+    }
 }

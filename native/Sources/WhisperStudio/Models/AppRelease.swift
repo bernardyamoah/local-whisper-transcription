@@ -7,6 +7,15 @@ struct AppRelease: Codable, Equatable, Sendable {
     let sizeBytes: Int64
     let sha256: String?
     let publishedAt: Date?
+
+    enum CodingKeys: String, CodingKey {
+        case version
+        case downloadURL = "download_url"
+        case filename
+        case sizeBytes = "size_bytes"
+        case sha256
+        case publishedAt = "published_at"
+    }
 }
 
 enum AppUpdatePhase: Equatable {
