@@ -45,15 +45,17 @@ struct ExportSheet: View {
                             ExportChoice(title: "Meeting minutes", subtitle: "Summary, decisions, and notes.", symbol: "doc.text", selected: content == "minutes") { content = "minutes"; normalizeFormat() }
                             ExportChoice(title: "Action items", subtitle: "Just the next steps.", symbol: "checklist", selected: content == "actions") { content = "actions"; normalizeFormat() }
                         }
-                        HStack {
-                            Text("File format").font(.headline)
-                            Spacer()
-                            Picker("File format", selection: $format) {
-                                ForEach(["md", "txt", "pdf", "docx", "csv", "json", "bundle"] + (content == "transcript" ? ["srt", "vtt"] : []), id: \.self) { value in
-                                    Text(value == "bundle" ? "Transcript + media (ZIP)" : value == "md" ? "Markdown" : value.uppercased()).tag(value)
-                                }
-                            }.labelsHidden().frame(width: 230)
-                        }.padding(16).studioGlass(radius: 14)
+                        Surface {
+                            HStack {
+                                Text("File format").font(.headline)
+                                Spacer()
+                                Picker("File format", selection: $format) {
+                                    ForEach(["md", "txt", "pdf", "docx", "csv", "json", "bundle"] + (content == "transcript" ? ["srt", "vtt"] : []), id: \.self) { value in
+                                        Text(value == "bundle" ? "Transcript + media (ZIP)" : value == "md" ? "Markdown" : value.uppercased()).tag(value)
+                                    }
+                                }.labelsHidden().studioMenuControl().frame(width: 230)
+                            }
+                        }
                     } else {
                         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                             ExportChoice(title: "Save file", subtitle: "Choose a folder on your Mac.", symbol: "folder", platform: "file", selected: destination == "file") { destination = "file" }
@@ -61,33 +63,37 @@ struct ExportSheet: View {
                             ExportChoice(title: "Notion", subtitle: "Send to your connected page.", symbol: "", platform: "notion", selected: destination == "notion") { destination = "notion" }
                             ExportChoice(title: "Webhook", subtitle: "Send to your workflow.", symbol: "", platform: "webhook", selected: destination == "webhook") { destination = "webhook" }
                         }
-                        VStack(alignment: .leading, spacing: 14) {
-                            Label(contentTitle, systemImage: "doc.text").font(.headline)
-                            Text(destination == "file" ? (format == "bundle" ? "ZIP archive with transcript and media" : "\(format.uppercased()) file") : destination == "obsidian" ? "Markdown sent to Obsidian" : "Send to \(destination.capitalized)")
-                                .font(.callout).foregroundStyle(.secondary)
-                            if destination == "file" && !["srt", "vtt"].contains(format) {
-                                Toggle("Include timestamps", isOn: $timestamps)
-                            }
-                            if !available {
-                                Text("Set up \(destination.capitalized) in Settings / Destinations.").font(.callout).foregroundStyle(.secondary)
-                            }
-                        }.padding(18).frame(maxWidth: .infinity, alignment: .leading).studioGlass(radius: 16)
+                        Surface {
+                            VStack(alignment: .leading, spacing: 14) {
+                                Label(contentTitle, systemImage: "doc.text").font(.headline)
+                                Text(destination == "file" ? (format == "bundle" ? "ZIP archive with transcript and media" : "\(format.uppercased()) file") : destination == "obsidian" ? "Markdown sent to Obsidian" : "Send to \(destination.capitalized)")
+                                    .font(.callout).foregroundStyle(.secondary)
+                                if destination == "file" && !["srt", "vtt"].contains(format) {
+                                    Toggle("Include timestamps", isOn: $timestamps)
+                                }
+                                if !available {
+                                    Text("Set up \(destination.capitalized) in Settings / Destinations.").font(.callout).foregroundStyle(.secondary)
+                                }
+                            }.frame(maxWidth: .infinity, alignment: .leading)
+                        }
                     }
                     if let error { Text(error).font(.callout).foregroundStyle(.red) }
                 }.padding(.horizontal, 24).padding(.bottom, 20)
             }.frame(height: 390)
             Divider().opacity(0.25)
-            HStack(spacing: 12) {
-                Button("Cancel", role: .cancel) { dismiss() }.studioButton().keyboardShortcut(.cancelAction).disabled(busy)
-                Spacer()
-                if busy { ProgressView().controlSize(.small) }
-                if step == 1 { Button("Back") { changeStep(0) }.studioButton().disabled(busy) }
-                Button(step == 0 ? "Continue" : destination == "file" ? "Save file…" : "Send to \(destination.capitalized)") {
-                    if step == 0 { changeStep(1) }
-                    else if destination == "file" { Task { await save() } }
-                    else { confirmDelivery = true }
-                }.studioButton(prominent: true).keyboardShortcut(.defaultAction)
-                    .disabled(busy || (step == 1 && !available))
+            StudioGlassGroup(spacing: 12) {
+                HStack(spacing: 12) {
+                    Button("Cancel", role: .cancel) { dismiss() }.studioButton(.ghost).keyboardShortcut(.cancelAction).disabled(busy)
+                    Spacer()
+                    if busy { ProgressView().controlSize(.small) }
+                    if step == 1 { Button("Back") { changeStep(0) }.studioButton(.ghost).disabled(busy) }
+                    Button(step == 0 ? "Continue" : destination == "file" ? "Save file…" : "Send to \(destination.capitalized)") {
+                        if step == 0 { changeStep(1) }
+                        else if destination == "file" { Task { await save() } }
+                        else { confirmDelivery = true }
+                    }.studioButton(.primary).keyboardShortcut(.defaultAction)
+                        .disabled(busy || (step == 1 && !available))
+                }
             }.padding(24)
         }
         .frame(width: 640)

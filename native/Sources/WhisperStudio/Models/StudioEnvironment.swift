@@ -10,6 +10,7 @@ struct StudioEnvironment: Decodable, Sendable {
     var models: [ModelInfo]
     var presets: [String: TranscriptionPreset]?
     var deepgram: ProviderStatus
+    var googleMeet: ProviderStatus
     var jev: ProviderStatus
     var meetingTemplates: [MeetingTemplate]
 }

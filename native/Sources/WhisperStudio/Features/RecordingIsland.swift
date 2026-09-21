@@ -8,7 +8,8 @@ struct RecordingIsland: View {
                 Label("Recording  \(StudioStyle.time(store.recording.elapsed ?? 0))", systemImage: "waveform")
             }.buttonStyle(.plain)
             Button("Stop recording", systemImage: "stop.fill") { Task { await store.stopRecording() } }
-                .labelStyle(.iconOnly).buttonStyle(.bordered).tint(.red).disabled(store.busy)
+                .labelStyle(.iconOnly).buttonStyle(.plain).foregroundStyle(.red)
+                .padding(7).background(.red.opacity(0.14), in: .circle).disabled(store.busy)
         }
         .font(.callout).monospacedDigit().padding(12).padding(.leading, 8)
         .studioGlass(radius: 30)

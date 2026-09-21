@@ -9,6 +9,44 @@ from studio.jev import Jev, SmartMoments
 from studio.store import Store
 
 
+def test_post_recording_analysis_preserves_manual_and_survives_failure(client, app, audio):
+    from tests.conftest import new_job, wait_state
+    from studio.jev import JevError
+
+    class Provider:
+        fail = False
+        def configured(self):
+            return True
+        def classify(self, segments, template):
+            if self.fail:
+                raise JevError("Service unavailable")
+            return [{"at": s["start"], "kind": "Action", "confidence": .95, "importance": 2.5} for s in segments]
+
+    job = wait_state(client, new_job(client, audio)["id"])
+    manual = client.post(f"/api/jobs/{job['id']}/bookmarks", json={"at": 0, "kind": "Decision"}).json()
+    provider = Provider()
+    smart = SmartMoments(app.state.store, provider)
+    smart.start()
+    try:
+        for _ in range(2):
+            smart.rescan(job["id"], summary=True)
+            smart.pending.join()
+            assert smart.analysis_status(job["id"])["state"] == "completed"
+        detail = client.get(f"/api/jobs/{job['id']}").json()
+        assert manual["id"] in [b["id"] for b in detail["bookmarks"]]
+        assert len([b for b in detail["bookmarks"] if b["source"] == "jev"]) == 1
+        assert job["segments"][0]["text"] in detail["notes"]["summary"]
+        provider.fail = True
+        smart.rescan(job["id"], summary=True)
+        smart.pending.join()
+        assert smart.analysis_status(job["id"])["state"] == "failed"
+        after = client.get(f"/api/jobs/{job['id']}").json()
+        assert after["bookmarks"] == detail["bookmarks"]
+        assert after["notes"] == detail["notes"]
+    finally:
+        smart.close()
+
+
 class Response(io.BytesIO):
     status = 200
 

@@ -22,9 +22,9 @@ struct ModelsView: View {
                             Spacer()
                             if model.installed {
                                 Label("Installed", systemImage: "checkmark.circle").font(.callout).foregroundStyle(.secondary)
-                                Button("Remove", role: .destructive) { delete = model }.studioButton()
+                                Button("Remove", role: .destructive) { delete = model }.studioButton(.destructive)
                             } else {
-                                Button("Download", systemImage: "arrow.down.circle") { Task { await store.perform("models/\(model.id)", body: ["confirm": true]) } }.studioButton(prominent: true).disabled(model.downloading)
+                                Button("Download", systemImage: "arrow.down.circle") { Task { await store.perform("models/\(model.id)", body: ["confirm": true]) } }.studioButton(.primary).disabled(model.downloading)
                             }
                         }
                     }

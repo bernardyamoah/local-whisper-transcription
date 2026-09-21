@@ -26,13 +26,13 @@ This is a native UI and desktop-host rewrite, not a rewrite of MLX/Whisper infer
 | Recording | Existing native capture helper, live utterances, elapsed time, manual and JEV bookmarks, stop/save |
 | Recording away from capture | Floating status control and menu bar controls |
 | Library | Search across titles/transcripts/speakers, sorting, pagination, delete transcript or source |
-| Transcript | Editable utterances, undo, copy, title and speaker rename, timestamp seeking |
+| Transcript | Editable utterances, undo, copy, title and speaker rename, optional Google Meet display-name matching, timestamp seeking |
 | Playback | AVPlayer audio controls and video, speed, scrubbing, current utterance, completed-text fade and follow scrolling |
 | Search | Matching utterance IDs, highlighting, wraparound next/previous, scroll to result |
 | Notes | Summary, chapters, bookmarks, JEV status/error visibility |
 | Export | TXT, SRT, VTT, Markdown, PDF, DOCX, CSV, JSON, transcript/media ZIP; minutes/actions; timestamps; native Save dialog |
 | Destinations | Obsidian, Notion, webhook settings and explicit Send confirmation |
-| Settings | Illustrated appearance, default preferences, provider keys, models, storage, retained sources |
+| Settings | Illustrated appearance, default preferences, provider connections including Google Meet, models, storage, retained sources |
 | Lifecycle | Single native window, menu bar, quit guard during recording/import, supervised engine, recovery errors |
 
 ## Verification

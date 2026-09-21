@@ -19,7 +19,7 @@ struct LibraryEmptyState: View {
             HStack(spacing: 10) {
                 Button("Import recording", systemImage: "square.and.arrow.down") {
                     store.showImporter = true
-                }.studioButton(prominent: true)
+                }.studioButton(.primary)
                 Button("Record meeting", systemImage: "mic") {
                     if store.recording.active { store.route = .capture }
                     else { Task { await store.startRecording() } }

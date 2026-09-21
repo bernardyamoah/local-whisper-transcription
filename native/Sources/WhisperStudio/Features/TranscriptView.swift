@@ -13,15 +13,19 @@ struct TranscriptView: View {
         VStack(spacing: 0) {
             if let job = model.job {
                 HStack(spacing: 16) {
-                    Button("Back to library", systemImage: "chevron.left") { store.route = .library }.labelStyle(.iconOnly).buttonStyle(.borderless)
+                    Button("Back to library", systemImage: "chevron.left") { store.route = .library }.labelStyle(.iconOnly).studioIconButton(.ghost)
                     VStack(alignment: .leading, spacing: 6) {
                         Button { title = job.title; rename = true } label: { Text(job.title).font(.title2).bold().lineLimit(1) }.buttonStyle(.plain).help("Rename recording")
                         Text("\(StudioStyle.time(job.duration)) · \((job.detectedLanguage ?? job.language).uppercased()) · \(job.provider == "local" ? "On this Mac" : "Deepgram")").font(.callout).foregroundStyle(.secondary)
                     }
                     Spacer()
                     if job.state == "completed" {
-                        Button("Export", systemImage: "square.and.arrow.up") { export = true }.studioButton(prominent: true)
-                        Button("Show bookmarks", systemImage: "sidebar.right") { model.inspector.toggle() }.labelStyle(.iconOnly).buttonStyle(.borderless)
+                        StudioGlassGroup(spacing: 10) {
+                            HStack(spacing: 10) {
+                                Button("Export", systemImage: "square.and.arrow.up") { export = true }.studioButton(.primary)
+                                Button("Show bookmarks", systemImage: "sidebar.right") { model.inspector.toggle() }.labelStyle(.iconOnly).studioIconButton()
+                            }
+                        }
                     }
                 }.padding(24)
                 if job.state == "completed" {

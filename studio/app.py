@@ -15,15 +15,17 @@ from typing import Literal
 from urllib.parse import quote, unquote
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 from starlette.concurrency import run_in_threadpool
 
 from studio import __version__
+from studio.connection_page import connection_page
 from studio.deepgram import Deepgram, DeepgramError
 from studio.destinations import DestinationError, ExportDestinations
 from studio.exports import filename, render_bundle, render_document
+from studio.google_meet import GoogleMeet, GoogleMeetError
 from studio.jev import Jev, JevError, SmartMoments
 from studio.jobs import ACTIVE, Orchestrator
 from studio.media import MediaError, create_playback, probe
@@ -128,6 +130,11 @@ class ProviderKey(BaseModel):
     api_key: str = Field(min_length=20, max_length=500)
 
 
+class GoogleMeetConnect(BaseModel):
+    client_id: str = Field(min_length=30, max_length=300)
+    client_secret: str = Field(min_length=10, max_length=300)
+
+
 class DestinationSettings(BaseModel):
     obsidian_vault: str | None = Field(default=None, max_length=2000)
     obsidian_folder: str | None = Field(default=None, max_length=300)
@@ -149,11 +156,13 @@ def create_app(
     native_command=None,
     deepgram=None,
     jev=None,
+    google_meet=None,
 ):
     store = Store(root or os.getenv("STUDIO_DATA", "~/.local/share/whisper-studio"))
     models, choices = Models(store, command=model_command), presets()
     deepgram = deepgram or Deepgram(store.root)
     jev = jev or Jev(store.root)
+    google_meet = google_meet or GoogleMeet(store.root)
     destinations = ExportDestinations(store.root)
     smart_moments = SmartMoments(store, jev)
     jobs = Orchestrator(store, command, models.path, deepgram.key, smart_moments.submit_job)
@@ -185,6 +194,7 @@ def create_app(
     app = FastAPI(title="Whisper Studio", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
     app.state.store, app.state.jobs, app.state.models, app.state.native = store, jobs, models, native
     app.state.deepgram, app.state.jev, app.state.smart_moments = deepgram, jev, smart_moments
+    app.state.google_meet = google_meet
     app.state.destinations = destinations
     app.middleware("http")(Boundary())
 
@@ -247,6 +257,7 @@ def create_app(
             "origin": "healthy",
             "native": native.capabilities(),
             "deepgram": {"configured": deepgram.configured()},
+            "google_meet": {"configured": google_meet.configured()},
             "jev": {
                 "configured": jev.configured(),
                 "enabled": jev.configured() and store.settings()["smart_moments"],
@@ -282,6 +293,35 @@ def create_app(
         jev.disconnect()
         store.update_settings({"smart_moments": False})
         return {"configured": False, "enabled": False}
+
+    @app.post("/api/providers/google-meet/start")
+    def connect_google_meet(payload: GoogleMeetConnect, request: Request):
+        redirect = str(request.base_url).rstrip("/") + "/api/providers/google-meet/callback"
+        try:
+            return {
+                "authorization_url": google_meet.begin(
+                    payload.client_id,
+                    payload.client_secret,
+                    redirect,
+                )
+            }
+        except GoogleMeetError as error:
+            raise HTTPException(400, str(error)) from error
+
+    @app.get("/api/providers/google-meet/callback", response_class=HTMLResponse)
+    def complete_google_meet(state: str = "", code: str = "", error: str = ""):
+        if error:
+            return HTMLResponse(connection_page("cancelled" if error == "access_denied" else "error"), 400)
+        try:
+            google_meet.complete(state, code)
+        except GoogleMeetError:
+            return HTMLResponse(connection_page("error"), 400)
+        return HTMLResponse(connection_page("success"))
+
+    @app.delete("/api/providers/google-meet")
+    def disconnect_google_meet(payload: Install):
+        google_meet.disconnect()
+        return {"configured": False}
 
     @app.get("/api/diagnostics")
     def diagnostics(request: Request):
@@ -487,7 +527,7 @@ def create_app(
             "checksum": checksum.hexdigest(),
         } | info
         try:
-            return jobs.complete_live(
+            job = jobs.complete_live(
                 job_id,
                 media,
                 recording["name"],
@@ -498,6 +538,9 @@ def create_app(
                 segments,
                 recording["started"],
             )
+            if google_meet.configured():
+                google_meet.sync_later(store, job_id)
+            return job
         except BaseException:
             # Keep the captured meeting recoverable if saving its transcript fails.
             target.replace(temporary)
@@ -553,6 +596,7 @@ def create_app(
     @app.get("/api/jobs/{identifier}")
     def detail(identifier: str):
         job = store.job(identifier)
+        job["analysis"] = smart_moments.analysis_status(identifier)
         with store.connect() as db:
             job["segments"] = [
                 dict(s)
@@ -580,6 +624,13 @@ def create_app(
             ]
         return job
 
+    @app.post("/api/jobs/{identifier}/analyze", status_code=202)
+    def analyze_meeting(identifier: str, summary: bool = False):
+        try:
+            return smart_moments.rescan(identifier, summary=summary)
+        except JevError as error:
+            raise HTTPException(400, str(error)) from error
+
     @app.post("/api/jobs/{identifier}/bookmarks", status_code=201)
     def add_job_bookmark(identifier: str, payload: JobBookmarkCreate):
         job = store.job(identifier)
@@ -606,6 +657,13 @@ def create_app(
                 tuple(bookmark.values()),
             )
         return {key: value for key, value in bookmark.items() if key != "media_id"}
+
+    @app.post("/api/jobs/{identifier}/speakers/google-meet")
+    def identify_google_meet_speakers(identifier: str):
+        try:
+            return google_meet.sync(store, identifier)
+        except GoogleMeetError as error:
+            raise HTTPException(409, str(error)) from error
 
     @app.delete("/api/jobs/{identifier}/bookmarks/{bookmark_id}")
     def delete_job_bookmark(identifier: str, bookmark_id: str):
@@ -694,9 +752,7 @@ def create_app(
         return Response(
             content,
             media_type=media_type,
-            headers={
-                "Content-Disposition": f"attachment; filename*=UTF-8''{quote(stem + '.' + suffix)}"
-            },
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(stem + '.' + suffix)}"},
         )
 
     @app.post("/api/jobs/{identifier}/deliver/{destination}")

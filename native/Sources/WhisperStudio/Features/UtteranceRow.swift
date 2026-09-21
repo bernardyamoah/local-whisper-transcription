@@ -40,7 +40,7 @@ struct UtteranceRow: View {
             }.frame(maxWidth: .infinity, alignment: .leading)
             Button(editing ? "Save edit" : "Edit utterance", systemImage: editing ? "checkmark" : "pencil") {
                 if editing { commit() } else { draft = segment.text; editing = true; focused = true }
-            }.labelStyle(.iconOnly).studioButton(prominent: editing).help(editing ? "Save" : "Edit utterance")
+            }.labelStyle(.iconOnly).studioIconButton(editing ? .primary : .ghost).help(editing ? "Save" : "Edit utterance")
         }
         .padding(12)
         .background(StudioStyle.accent.opacity(matched ? 0.1 : active ? 0.055 : 0), in: .rect(cornerRadius: 14))

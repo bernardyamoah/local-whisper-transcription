@@ -44,7 +44,7 @@ struct WelcomePlayground: View {
                 }
                 .padding(22)
                 .frame(width: 244, height: 158)
-                .studioGlass(radius: 24)
+                .studioGlass(radius: 24, interactive: true)
                 .rotationEffect(.degrees(reduceMotion ? 0 : revealed ? -3 : hovering ? 0 : 4))
                 .offset(y: hovering && !reduceMotion ? -4 : 0)
             }

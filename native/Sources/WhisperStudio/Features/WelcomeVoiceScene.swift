@@ -42,7 +42,9 @@ struct WelcomeVoiceScene: View {
                 Button(speech.listening ? "Stop listening" : speech.text.isEmpty ? "Try my voice" : "Try again", systemImage: speech.listening ? "stop.fill" : "mic.fill") {
                     if speech.listening { speech.stop() } else { Task { await speech.start() } }
                 }
-                .studioButton(prominent: true)
+                .buttonStyle(.plain).fontWeight(.semibold)
+                .padding(.horizontal, 16).padding(.vertical, 10)
+                .background(StudioStyle.accent.opacity(0.2), in: .capsule)
                 .keyboardShortcut(.defaultAction)
                 .disabled(speech.preparing || store.recording.active)
             }

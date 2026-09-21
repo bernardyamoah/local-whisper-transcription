@@ -8,6 +8,18 @@ final class TranscriptModel {
     var matches: [Int] = []
     var followPlayback = true
     var inspector = true
+    var requestingAnalysis = false
+
+    func analyze(summary: Bool, api: StudioAPI) async {
+        guard let id = job?.id, !requestingAnalysis, job?.analysis?.busy != true else { return }
+        requestingAnalysis = true
+        defer { requestingAnalysis = false }
+        do {
+            let status: MeetingAnalysis = try await api.request("jobs/\(id)/analyze?summary=\(summary)", method: "POST", body: [:])
+            job?.analysis = status
+            error = nil
+        } catch { self.error = error.localizedDescription }
+    }
     private var pendingEdits = 0
     var saving: Bool { pendingEdits > 0 }
     var unsaved = false
@@ -101,8 +113,24 @@ final class TranscriptModel {
             self.job = try await api.request("jobs/\(job.id)")
         } catch { self.error = error.localizedDescription }
     }
+    func identifySpeakers(api: StudioAPI) async throws -> SpeakerIdentityResult {
+        guard let job else { throw StudioFailure(message: "The transcript is unavailable.") }
+        let result: SpeakerIdentityResult = try await api.request(
+            "jobs/\(job.id)/speakers/google-meet",
+            method: "POST",
+            body: [:]
+        )
+        self.job = try await api.request("jobs/\(job.id)")
+        return result
+    }
     func copy() {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(job?.segments.map(\.text).joined(separator: "\n\n") ?? "", forType: .string)
     }
+}
+
+struct SpeakerIdentityResult: Decodable, Sendable {
+    let status: String
+    let renamed: Int
+    let message: String
 }

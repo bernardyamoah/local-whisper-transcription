@@ -157,6 +157,67 @@ class SmartMoments:
         self.stop = threading.Event()
         self.thread: threading.Thread | None = None
         self.last_error: str | None = None
+        self.analysis: dict[str, dict] = {}
+        self.analysis_lock = threading.Lock()
+
+    def analysis_status(self, job_id: str) -> dict:
+        with self.analysis_lock:
+            return dict(self.analysis.get(job_id, {"state": "idle", "error": None}))
+
+    def rescan(self, job_id: str, summary: bool = False) -> dict:
+        job = self.store.job(job_id)
+        if job["state"] != "completed":
+            raise JevError("Finish transcription before analyzing this meeting.")
+        if not self.jev.configured():
+            raise JevError("Connect JEV in Settings to analyze this meeting.")
+        with self.analysis_lock:
+            current = self.analysis.get(job_id, {})
+            if current.get("state") in {"queued", "running"}:
+                return dict(current)
+            status = {"state": "queued", "error": None}
+            try:
+                self.pending.put_nowait(("rescan", job_id, summary))
+            except queue.Full as error:
+                raise JevError("Analysis is busy. Try again shortly.") from error
+            self.analysis[job_id] = status
+            return dict(status)
+
+    def _rescan(self, job_id: str, summary: bool) -> None:
+        with self.analysis_lock:
+            self.analysis[job_id] = {"state": "running", "error": None}
+        job = self.store.job(job_id)
+        with self.store.connect() as db:
+            segments = [dict(row) for row in db.execute(
+                "SELECT start,text,speaker_name FROM segments WHERE job_id=? ORDER BY sequence", (job_id,)
+            )]
+        if not segments:
+            raise JevError("This transcript has no text to analyze.")
+        selected = []
+        for start in range(0, len(segments), 20):
+            batch = segments[start:start + 20]
+            decisions = self.jev.classify(batch, job["template"])
+            for segment, decision in zip(batch, decisions):
+                if decision["kind"] and decision["confidence"] >= self.confidence_threshold and decision["importance"] >= self.importance_threshold:
+                    selected.append((segment, decision))
+        # Commit only after all requests succeed; failures preserve previous results.
+        with self.store.connect() as db:
+            db.execute("DELETE FROM bookmarks WHERE media_id=? AND source='jev'", (job["media_id"],))
+            for segment, decision in selected:
+                duplicate = db.execute(
+                    "SELECT 1 FROM bookmarks WHERE media_id=? AND kind=? AND ABS(at-?) < 4",
+                    (job["media_id"], decision["kind"], decision["at"]),
+                ).fetchone()
+                if not duplicate:
+                    db.execute("INSERT INTO bookmarks(id,media_id,at,kind,note,created,source,confidence) VALUES(?,?,?,?,?,?,?,?)",
+                               (uuid.uuid4().hex, job["media_id"], decision["at"], decision["kind"], segment["text"], time.time(), "jev", decision["confidence"]))
+            if summary:
+                highlights = sorted(sorted(selected, key=lambda item: item[1]["importance"], reverse=True)[:8], key=lambda item: item[0]["start"])
+                summary_text = "\n\n".join(segment["text"] for segment, _ in highlights) or "No significant meeting highlights were identified."
+                chapters = [{"start": segment["start"], "title": segment["text"]} for segment, _ in highlights]
+                db.execute("INSERT OR REPLACE INTO meeting_notes(job_id,summary,chapters,topics) VALUES(?,?,?,?)",
+                           (job_id, summary_text, json.dumps(chapters), json.dumps(list(dict.fromkeys(d["kind"] for _, d in highlights)))))
+        with self.analysis_lock:
+            self.analysis[job_id] = {"state": "completed", "error": None}
 
     def start(self) -> None:
         self.thread = threading.Thread(target=self._run, daemon=True, name="smart-moments")
@@ -191,13 +252,18 @@ class SmartMoments:
             except queue.Empty:
                 continue
             try:
-                if task[0] == "job":
+                if task[0] == "rescan":
+                    self._rescan(task[1], task[2])
+                elif task[0] == "job":
                     self._process_job(task[1])
                 else:
                     self._process_segments(task[1], task[2], task[3])
                 self.last_error = None
             except (JevError, OSError, ValueError, TypeError, KeyError, AttributeError, sqlite3.Error) as error:
                 self.last_error = str(error) if isinstance(error, JevError) else "Smart Moments processing failed."
+                if task[0] == "rescan":
+                    with self.analysis_lock:
+                        self.analysis[task[1]] = {"state": "failed", "error": self.last_error}
                 logging.getLogger("studio").warning("Smart Moments failed: %s", type(error).__name__)
             finally:
                 self.pending.task_done()

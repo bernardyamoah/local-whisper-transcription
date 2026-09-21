@@ -4,7 +4,7 @@ import PackageDescription
 
 let package = Package(
     name: "WhisperStudioAudioBridge",
-    platforms: [.macOS(.v15)],
+    platforms: [.macOS(.v26)],
     products: [
         .executable(name: "whisper-studio-audio-bridge", targets: ["AudioBridge"]),
         .executable(name: "WhisperStudio", targets: ["WhisperStudio"]),

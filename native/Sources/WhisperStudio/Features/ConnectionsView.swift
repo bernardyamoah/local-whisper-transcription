@@ -7,6 +7,7 @@ struct ConnectionsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 IntegrationCard(integration: .deepgram, configured: configured(.deepgram)) { selected = .deepgram }
+                IntegrationCard(integration: .googleMeet, configured: configured(.googleMeet)) { selected = .googleMeet }
                 IntegrationCard(integration: .jev, configured: configured(.jev)) { selected = .jev }
                 if configured(.jev) {
                     @Bindable var store = store
@@ -22,6 +23,11 @@ struct ConnectionsView: View {
         }
     }
     private func configured(_ integration: StudioIntegration) -> Bool {
-        integration == .deepgram ? store.environment?.deepgram.configured == true : store.environment?.jev.configured == true
+        switch integration {
+        case .deepgram: store.environment?.deepgram.configured == true
+        case .googleMeet: store.environment?.googleMeet.configured == true
+        case .jev: store.environment?.jev.configured == true
+        default: false
+        }
     }
 }

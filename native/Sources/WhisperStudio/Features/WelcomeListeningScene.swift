@@ -26,14 +26,16 @@ struct WelcomeListeningScene: View {
             }.frame(maxWidth: .infinity, alignment: .leading)
             HStack(spacing: 16) {
                 Button(playing ? "Pause sample" : "Play sample", systemImage: playing ? "pause.fill" : "play.fill") { toggle() }
-                    .labelStyle(.iconOnly).studioButton(prominent: true)
+                    .labelStyle(.iconOnly).buttonStyle(.plain).padding(9)
+                    .background(StudioStyle.accent.opacity(0.2), in: .circle)
                 Slider(value: $elapsed, in: 0...duration) { editing in
                     seeking = editing
                     if editing { audio.stop() }
                     else if playing { audio.play("sample", at: elapsed) }
                 }.accessibilityLabel("Sample playback")
                 Button("Replay sample", systemImage: "arrow.counterclockwise") { elapsed = 0; playing = true; audio.play("sample") }
-                    .labelStyle(.iconOnly).studioButton()
+                    .labelStyle(.iconOnly).buttonStyle(.plain).padding(9)
+                    .background(.primary.opacity(0.08), in: .circle)
             }
         }.padding(28).frame(maxWidth: 520).studioGlass(radius: 24)
             .task {

@@ -8,7 +8,7 @@ struct StudioSettingsView: View {
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 8) {
                 Button("Workspace", systemImage: "arrow.left") { store.route = .library }
-                    .studioButton().padding(.bottom, 24)
+                    .buttonStyle(.plain).padding(.horizontal, 10).padding(.bottom, 24)
                 Text("Settings").font(.title2.weight(.semibold)).padding(.horizontal, 10).padding(.bottom, 16)
                 ForEach(SettingsCategory.allCases) { item in
                     SidebarItem(title: item.title, icon: item.icon, selected: section == item, badge: item == .updates && store.updates.updateAvailable) {
@@ -23,7 +23,9 @@ struct StudioSettingsView: View {
                         Text(store.environment?.version ?? "").font(.caption).foregroundStyle(.secondary)
                     }
                 }.padding(12)
-            }.padding(20).frame(width: 242).background(.ultraThinMaterial)
+            }.padding(20).frame(width: 242)
+                .glassEffect(.regular, in: .rect(cornerRadius: 24))
+                .padding(12)
             VStack(alignment: .leading, spacing: 24) {
                 HStack(alignment: .firstTextBaseline) {
                     Text(section.title).font(.system(size: 28, weight: .semibold)).tracking(-0.6)
@@ -44,7 +46,6 @@ struct StudioSettingsView: View {
             }.padding(36).frame(maxWidth: 1000, maxHeight: .infinity, alignment: .topLeading)
                 .frame(maxWidth: .infinity)
                 .background(Color(nsColor: .windowBackgroundColor))
-                .environment(\.plainSettingsSurfaces, true)
         }.background(Color(nsColor: .windowBackgroundColor).ignoresSafeArea())
     }
 }

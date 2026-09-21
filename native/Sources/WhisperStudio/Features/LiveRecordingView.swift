@@ -16,7 +16,8 @@ struct LiveRecordingView: View {
                 RecordingWave()
                 Button("Mini player", systemImage: "pip") { store.companion.show() }.labelStyle(.iconOnly).help("Show recording overlay")
                 Button("Stop recording", systemImage: "stop.fill") { Task { await store.stopRecording() } }
-                    .studioButton(prominent: true).controlSize(.regular).disabled(store.busy)
+                    .buttonStyle(.plain).foregroundStyle(.red).padding(.horizontal, 12).padding(.vertical, 8)
+                    .background(.red.opacity(0.14), in: .capsule).disabled(store.busy)
             }.padding(12).studioGlass(radius: 16)
             Surface {
                 VStack(alignment: .leading, spacing: 20) {
@@ -50,12 +51,14 @@ struct LiveRecordingView: View {
                     if let error = store.recording.liveError { Text(error).font(.callout).foregroundStyle(.red) }
                     if let error = store.environment?.jev.error { Text(error).font(.callout).foregroundStyle(.red) }
                     Divider()
-                    HStack {
-                        ForEach(store.selectedTemplate?.bookmarks ?? ["Key point", "Decision", "Action", "Question"], id: \.self) { kind in
-                            Button(kind, systemImage: "bookmark") { Task { await store.bookmark(kind) } }.studioButton()
+                    StudioGlassGroup(spacing: 10) {
+                        HStack {
+                            ForEach(store.selectedTemplate?.bookmarks ?? ["Key point", "Decision", "Action", "Question"], id: \.self) { kind in
+                                Button(kind, systemImage: "bookmark") { Task { await store.bookmark(kind) } }.studioButton()
+                            }
+                            Spacer()
+                            Text("\(store.recording.bookmarks?.count ?? 0) saved").font(.caption).foregroundStyle(.secondary)
                         }
-                        Spacer()
-                        Text("\(store.recording.bookmarks?.count ?? 0) saved").font(.caption).foregroundStyle(.secondary)
                     }
                 }
             }

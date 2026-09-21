@@ -13,7 +13,7 @@ struct CaptureView: View {
                 HStack {
                     Text(store.recording.active ? "Your meeting" : "New transcription").font(.title2).bold()
                     Spacer()
-                    Button("Library", systemImage: "square.stack") { store.route = .library }.buttonStyle(.borderless)
+                    Button("Library", systemImage: "square.stack") { store.route = .library }.studioButton(.ghost)
                 }.padding(.bottom, 8)
                 if store.recording.active {
                     LiveRecordingView()
@@ -29,13 +29,15 @@ struct CaptureView: View {
                             Text("Drop a recording. Or start something new.").foregroundStyle(.secondary)
                         }
                     }
-                    HStack(spacing: 12) {
-                        if store.imported != nil {
-                            Button("Transcribe", systemImage: "sparkles") { Task { await store.transcribe() } }.studioButton(prominent: true)
-                            Button("Choose another") { store.showImporter = true }.studioButton()
-                        } else {
-                            Button("Choose file", systemImage: "arrow.up.doc") { store.showImporter = true }.studioButton(prominent: true)
-                            Button("Record meeting", systemImage: "mic") { Task { await store.startRecording() } }.studioButton()
+                    StudioGlassGroup(spacing: 12) {
+                        HStack(spacing: 12) {
+                            if store.imported != nil {
+                                Button("Transcribe", systemImage: "sparkles") { Task { await store.transcribe() } }.studioButton(.primary)
+                                Button("Choose another") { store.showImporter = true }.studioButton()
+                            } else {
+                                Button("Choose file", systemImage: "arrow.up.doc") { store.showImporter = true }.studioButton(.primary)
+                                Button("Record meeting", systemImage: "mic") { Task { await store.startRecording() } }.studioButton()
+                            }
                         }
                     }.controlSize(.regular).disabled(store.busy)
                     if store.busy { ProgressView().controlSize(.small) }
@@ -61,7 +63,10 @@ struct CaptureView: View {
                             CaptureOptions().padding(16).padding(.top, -4)
                                 .transition(.opacity)
                         }
-                    }.studioGlass(radius: 16).padding(.top, 24)
+                    }
+                    .background(.primary.opacity(0.035), in: .rect(cornerRadius: 16))
+                    .overlay { RoundedRectangle(cornerRadius: 16).strokeBorder(.primary.opacity(0.08), lineWidth: 0.5) }
+                    .padding(.top, 24)
                     Spacer(minLength: 36)
                 }
             }.padding(24).frame(maxWidth: 680).frame(maxWidth: .infinity)

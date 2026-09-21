@@ -11,7 +11,7 @@ struct WhisperStudioApp: App {
                 .environment(store)
                 .preferredColorScheme(store.showOnboarding ? .dark : store.scheme)
                 .containerBackground(.clear, for: .window)
-                .background { WindowTransparency(enabled: true) }
+                .background { WindowTransparency(enabled: store.showOnboarding) }
                 .tint(StudioStyle.accent)
                 .frame(minWidth: 900, minHeight: 660)
                 .task {

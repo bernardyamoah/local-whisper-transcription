@@ -17,20 +17,30 @@ struct LibraryView: View {
                 }
                 Spacer()
                 if !emptyLibrary {
-                Button(selection.selecting ? "Done" : "Select", systemImage: selection.selecting ? "checkmark" : "checkmark.circle") {
-                    selection.selecting.toggle(); selection.selected.removeAll()
-                }.studioButton().disabled(selection.deleting)
-                Button("New recording", systemImage: "plus") { store.route = .capture }.studioButton(prominent: true)
+                    StudioGlassGroup(spacing: 10) {
+                        HStack(spacing: 10) {
+                            Button(selection.selecting ? "Done" : "Select", systemImage: selection.selecting ? "checkmark" : "checkmark.circle") {
+                                selection.selecting.toggle(); selection.selected.removeAll()
+                            }.studioButton().disabled(selection.deleting)
+                            Button("New recording", systemImage: "plus") { store.route = .capture }.studioButton(.primary)
+                        }
+                    }
                 }
             }.controlSize(.regular).padding(20)
             if !emptyLibrary {
-            HStack {
-                Image(systemName: "magnifyingglass").foregroundStyle(.secondary).accessibilityHidden(true)
-                TextField("Search your words", text: $store.libraryQuery).textFieldStyle(.plain).focused($searchFocused)
-                Picker("Sort", selection: $store.librarySort) {
-                    Text("Newest").tag("newest"); Text("Oldest").tag("oldest"); Text("Title").tag("title"); Text("Duration").tag("duration")
-                }.labelsHidden().frame(width: 130)
-            }.padding(10).studioGlass(radius: 14).padding(.horizontal, 20).padding(.bottom, 12)
+                StudioGlassGroup(spacing: 10) {
+                    HStack(spacing: 10) {
+                        HStack {
+                            Image(systemName: "magnifyingglass").foregroundStyle(.secondary).accessibilityHidden(true)
+                            TextField("Search your words", text: $store.libraryQuery).textFieldStyle(.plain).focused($searchFocused)
+                        }
+                        .padding(10)
+                        .studioGlass(radius: 14, interactive: true)
+                        Picker("Sort", selection: $store.librarySort) {
+                            Text("Newest").tag("newest"); Text("Oldest").tag("oldest"); Text("Title").tag("title"); Text("Duration").tag("duration")
+                        }.labelsHidden().studioMenuControl().frame(width: 130)
+                    }
+                }.padding(.horizontal, 20).padding(.bottom, 12)
             }
             if emptyLibrary {
                 LibraryEmptyState()
@@ -55,7 +65,7 @@ struct LibraryView: View {
                                 } label: { LibraryRow(job: job) }.buttonStyle(.plain)
                                 if !selection.selecting {
                                     Button("Delete transcript", systemImage: "trash") { selection.propose([job.id]) }
-                                        .labelStyle(.iconOnly).buttonStyle(.borderless).foregroundStyle(.secondary).padding(.trailing, 20).help("Delete transcript")
+                                        .labelStyle(.iconOnly).studioIconButton(.ghost).foregroundStyle(.red).padding(.trailing, 20).help("Delete transcript")
                                 }
                             }
                             .background(.primary.opacity(0.035), in: .rect(cornerRadius: 12))
@@ -79,11 +89,11 @@ struct LibraryView: View {
             if selection.selecting || selection.deleting {
                 HStack(spacing: 18) {
                     Text("\(selection.selected.count) selected").monospacedDigit()
-                    Button("Select loaded") { selection.selected.formUnion(store.jobs.map(\.id)) }.buttonStyle(.plain)
+                    Button("Select loaded") { selection.selected.formUnion(store.jobs.map(\.id)) }.studioButton(.ghost)
                     Divider().frame(height: 18)
                     if selection.deleting { ProgressView().controlSize(.small) }
                     Button("Delete", systemImage: "trash", role: .destructive) { selection.propose(selection.selected) }
-                        .studioButton().disabled(selection.selected.isEmpty || selection.deleting)
+                        .buttonStyle(.plain).foregroundStyle(.red).disabled(selection.selected.isEmpty || selection.deleting)
                 }.padding(10).studioGlass(radius: 12).padding(20).disabled(selection.deleting)
                     .transition(.opacity.combined(with: .offset(y: reduceMotion ? 0 : 10)))
             }

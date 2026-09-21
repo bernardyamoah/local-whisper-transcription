@@ -23,7 +23,7 @@ struct PlatformIcon: View {
                     .renderingMode(name == "notion" ? .template : .original)
                     .scaledToFit()
             } else {
-                Image(systemName: name == "file" ? "folder" : name == "deepgram" ? "waveform" : name == "jev" ? "sparkles" : "arrow.triangle.branch")
+                Image(systemName: name == "file" ? "folder" : name == "deepgram" ? "waveform" : name == "google-meet" ? "video.fill" : name == "jev" ? "sparkles" : "arrow.triangle.branch")
                     .resizable().scaledToFit()
             }
         }.frame(width: size, height: size).accessibilityHidden(true)

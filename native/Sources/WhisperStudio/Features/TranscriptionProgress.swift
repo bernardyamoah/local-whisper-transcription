@@ -15,10 +15,10 @@ struct TranscriptionProgress: View {
                     .monospacedDigit().contentTransition(.numericText()).animation(reduceMotion ? nil : .smooth, value: job.progress)
                 ProgressView(value: job.progress, total: 100).frame(maxWidth: 340).animation(reduceMotion ? nil : .smooth(duration: 0.4), value: job.progress)
                 if let start = job.started { Text(Date(timeIntervalSince1970: start), style: .timer).font(.callout).monospacedDigit().foregroundStyle(.secondary) }
-                Button("Cancel") { Task { await store.perform("jobs/\(job.id)/cancel") } }.buttonStyle(.bordered)
+                Button("Cancel") { Task { await store.perform("jobs/\(job.id)/cancel") } }.studioButton(.ghost)
             } else {
                 if let error = job.error { Text(error).font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: 450) }
-                Button("Retry") { Task { await store.perform("jobs/\(job.id)/retry") } }.buttonStyle(.borderedProminent)
+                Button("Retry") { Task { await store.perform("jobs/\(job.id)/retry") } }.studioButton(.primary)
             }
             Spacer()
         }.frame(maxWidth: .infinity)

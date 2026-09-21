@@ -49,9 +49,9 @@ struct UpdatesView: View {
         case .checking, .downloading:
             ProgressView().controlSize(.small)
         case .available:
-            Button("Download", systemImage: "arrow.down.circle") { Task { await store.updates.download() } }.studioButton(prominent: true)
+            Button("Download", systemImage: "arrow.down.circle") { Task { await store.updates.download() } }.studioButton(.primary)
         case .ready:
-            Button("Open Installer", systemImage: "shippingbox") { store.updates.openInstaller() }.studioButton(prominent: true)
+            Button("Open Installer", systemImage: "shippingbox") { store.updates.openInstaller() }.studioButton(.primary)
         default:
             Button("Check Now") { Task { await store.updates.check(manual: true) } }.studioButton()
         }

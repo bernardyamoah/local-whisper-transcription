@@ -55,8 +55,12 @@ Installed apps check the manifest on launch and every six hours. Settings shows 
 On Apple silicon:
 
 ```sh
-./scripts/build-swiftui.sh
+GOOGLE_MEET_CLIENT_ID="your-desktop-client.apps.googleusercontent.com" \
+GOOGLE_MEET_CLIENT_SECRET="your-desktop-client-secret" \
+  ./scripts/build-swiftui.sh
 ```
+
+Inject both values at build time and keep them out of source control. Google treats installed applications as public clients that cannot keep credentials confidential; the generated desktop `client_secret` identifies the app during token exchange but does not secure it. Bundling the app-owned credential gives users a standard **Connect Google Meet** browser flow without asking them for developer credentials. The Google Cloud project must have the Meet REST API enabled and request `meetings.space.readonly` on its consent screen.
 
 The build produces both `dist/Whisper Studio.app` and a versioned DMG. It verifies the disk image before reporting success. Distribution builds should be signed with a Developer ID Application certificate and notarized before upload; the current local build is ad-hoc signed.
 

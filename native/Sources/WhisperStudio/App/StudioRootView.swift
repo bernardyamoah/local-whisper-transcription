@@ -66,12 +66,12 @@ struct StudioRootView: View {
                 HStack(spacing: 12) {
                     Label(error, systemImage: "exclamationmark.circle").font(.callout)
                     Button("Dismiss", systemImage: "xmark") { store.error = nil }.labelStyle(.iconOnly).buttonStyle(.plain)
-                }.padding().background(.regularMaterial, in: .rect(cornerRadius: 14)).padding().frame(maxWidth: 640)
+                }.padding().glassEffect(.regular, in: .rect(cornerRadius: 14)).padding().frame(maxWidth: 640)
             }
         }
         .overlay(alignment: .bottom) {
             if let notice = store.notice {
-                Text(notice).font(.callout).padding().background(.regularMaterial, in: .capsule).padding()
+                Text(notice).font(.callout).padding().glassEffect(.regular, in: .capsule).padding()
                     .task(id: notice) {
                         do { try await Task.sleep(for: .seconds(4)); store.notice = nil } catch { }
                     }

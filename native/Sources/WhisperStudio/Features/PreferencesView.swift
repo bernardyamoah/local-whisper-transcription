@@ -14,20 +14,20 @@ struct PreferencesView: View {
                         VStack(spacing: 16) {
                             SettingsRow(title: "Default provider") { Picker("Default provider", selection: $draft.transcriptionProvider) {
                                 Text("On this Mac").tag("local"); Text("Deepgram").tag("deepgram")
-                            } }
+                            }.studioMenuControl() }
                             Divider().opacity(0.4)
                             SettingsRow(title: "Quality") { Picker("Quality", selection: $draft.preset) {
                                 Text("Quick").tag("fast"); Text("Balanced").tag("balanced"); Text("Precise").tag("accurate")
-                            } }
+                            }.studioMenuControl() }
                             Divider().opacity(0.4)
                             SettingsRow(title: "Language") { Picker("Language", selection: $draft.language) {
                                 Text("Detect automatically").tag("auto")
                                 ForEach(store.environment?.languages ?? [], id: \.self) { code in
                                     Text(Locale.current.localizedString(forLanguageCode: code) ?? code).tag(code)
                                 }
-                            } }
+                            }.studioMenuControl() }
                             Divider().opacity(0.4)
-                            SettingsRow(title: "Hardware") { Picker("Hardware", selection: $draft.hardware) { Text("Automatic").tag("auto"); Text("Apple Silicon").tag("apple") } }
+                            SettingsRow(title: "Hardware") { Picker("Hardware", selection: $draft.hardware) { Text("Automatic").tag("auto"); Text("Apple Silicon").tag("apple") }.studioMenuControl() }
                         }.pickerStyle(.menu)
                     }
                 }
@@ -45,12 +45,14 @@ struct PreferencesView: View {
                         }
                     }
                 }
-                HStack {
-                    Button("Replay welcome", systemImage: "play.circle") { store.showOnboarding = true }.studioButton()
-                    Spacer()
-                    if saving { ProgressView().controlSize(.small) }
-                    Button("Save changes") { Task { await save() } }.studioButton(prominent: true)
-                        .disabled(saving || draft == store.preferences)
+                StudioGlassGroup(spacing: 12) {
+                    HStack {
+                        Button("Replay welcome", systemImage: "play.circle") { store.showOnboarding = true }.studioButton(.ghost)
+                        Spacer()
+                        if saving { ProgressView().controlSize(.small) }
+                        Button("Save changes") { Task { await save() } }.studioButton(.primary)
+                            .disabled(saving || draft == store.preferences)
+                    }
                 }
                 if let failure { Text(failure).font(.callout).foregroundStyle(.red) }
             }.padding(2).controlSize(.regular)

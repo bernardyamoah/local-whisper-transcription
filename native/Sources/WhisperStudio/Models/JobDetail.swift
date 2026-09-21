@@ -20,6 +20,7 @@ struct JobDetail: Decodable, Identifiable, Sendable {
     var segments: [TranscriptSegment]
     var bookmarks: [Bookmark]
     var notes: MeetingNotes?
+    var analysis: MeetingAnalysis?
     var template: MeetingTemplate
     var active: Bool { ["queued", "preparing", "transcribing", "saving"].contains(state) }
 }

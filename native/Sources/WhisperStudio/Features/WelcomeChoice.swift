@@ -17,7 +17,7 @@ struct WelcomeChoice: View {
                 Text(title).font(.headline)
                 if !subtitle.isEmpty { Text(subtitle).font(.callout).foregroundStyle(.secondary) }
             }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-                .background(.regularMaterial, in: .rect(cornerRadius: 22))
+                .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 22))
                 .overlay { RoundedRectangle(cornerRadius: 22).strokeBorder(selected ? Color.accentColor.opacity(0.7) : .primary.opacity(0.08)) }
                 .contentShape(.rect(cornerRadius: 22))
         }.buttonStyle(.plain).accessibilityAddTraits(selected ? .isSelected : [])

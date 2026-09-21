@@ -19,9 +19,11 @@ struct StorageView: View {
                             }
                             Divider().opacity(0.4)
                             SettingsRow(title: "Compute") { Text(env.compute).foregroundStyle(.secondary) }
-                            HStack {
-                                Button("Data folder", systemImage: "folder") { NSWorkspace.shared.open(URL(filePath: env.dataLocation)) }.studioButton()
-                                Button("Logs", systemImage: "doc.text") { NSWorkspace.shared.open(URL(filePath: env.dataLocation).appending(path: "logs")) }.studioButton()
+                            StudioGlassGroup(spacing: 10) {
+                                HStack {
+                                    Button("Data folder", systemImage: "folder") { NSWorkspace.shared.open(URL(filePath: env.dataLocation)) }.studioButton()
+                                    Button("Logs", systemImage: "doc.text") { NSWorkspace.shared.open(URL(filePath: env.dataLocation).appending(path: "logs")) }.studioButton()
+                                }
                             }
                         }
                     }
@@ -37,8 +39,12 @@ struct StorageView: View {
                                             Text(StudioStyle.time(item.duration)).font(.caption).foregroundStyle(.secondary)
                                         }
                                         Spacer()
-                                        Button("Transcribe") { store.imported = item; store.route = .capture }.studioButton()
-                                        Button("Delete", systemImage: "trash", role: .destructive) { deletion = item }.labelStyle(.iconOnly).studioButton()
+                                        StudioGlassGroup(spacing: 8) {
+                                            HStack(spacing: 8) {
+                                                Button("Transcribe") { store.imported = item; store.route = .capture }.studioButton()
+                                                Button("Delete", systemImage: "trash", role: .destructive) { deletion = item }.labelStyle(.iconOnly).studioIconButton(.ghost).foregroundStyle(.red)
+                                            }
+                                        }
                                     }
                                 }
                             }

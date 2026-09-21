@@ -12,7 +12,7 @@ struct CompanionOrb: View {
                 ZStack {
                     Circle().fill(.white.opacity(0.025))
                     ZStack {
-                        Circle().fill(.ultraThinMaterial)
+                        Circle().glassEffect(.regular, in: .circle)
                         Ellipse().fill(Color(red: 0.52, green: 0.62, blue: 0.70)).frame(width: side * 0.85, height: side * 0.55)
                             .offset(x: side * 0.12 * sin(t * 1.1), y: -side * 0.16).blur(radius: side * 0.13)
                         Ellipse().fill(Color(white: scheme == .dark ? 0.24 : 0.64)).frame(width: side * 0.8, height: side * 0.6)

@@ -2,7 +2,6 @@ import SwiftUI
 
 struct WelcomeView: View {
     @Environment(StudioStore.self) private var store
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var scene = 0
     @State private var saving = false
@@ -47,10 +46,14 @@ struct WelcomeView: View {
             VStack(spacing: 22) {
                 HStack(spacing: 12) {
                     if scene == 5 {
-                        Button("Explore first") { Task { await finish(importRecording: false) } }.studioButton()
-                        Button("Import recording", systemImage: "square.and.arrow.down") {
-                            Task { await finish(importRecording: true) }
-                        }.studioButton(prominent: true).keyboardShortcut(.defaultAction)
+                        StudioGlassGroup(spacing: 12) {
+                            HStack(spacing: 12) {
+                                Button("Explore first") { Task { await finish(importRecording: false) } }.studioButton()
+                                Button("Import recording", systemImage: "square.and.arrow.down") {
+                                    Task { await finish(importRecording: true) }
+                                }.studioButton(.primary).keyboardShortcut(.defaultAction)
+                            }
+                        }
                     } else {
                         advanceButton
                     }
@@ -68,12 +71,9 @@ struct WelcomeView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background {
-            if reduceTransparency { WorkspaceBackground() }
-            else {
-                ZStack {
-                    DesktopBackdrop().ignoresSafeArea()
-                    Color.black.opacity(0.34).ignoresSafeArea()
-                }
+            ZStack {
+                DesktopBackdrop().ignoresSafeArea()
+                Color.black.opacity(0.34).ignoresSafeArea()
             }
         }
         .onAppear {
@@ -99,17 +99,18 @@ struct WelcomeView: View {
     }
 
     private var providerChoices: some View {
-        HStack(spacing: 12) {
-            WelcomeChoice(title: "On this Mac", subtitle: "Local model · Works offline", icon: "laptopcomputer",
-                          selected: store.preferences.transcriptionProvider == "local") {
-                store.preferences.transcriptionProvider = "local"
-            }
-            WelcomeChoice(title: "Deepgram", subtitle: "Cloud · API key required", icon: "cloud",
-                          selected: store.preferences.transcriptionProvider == "deepgram") {
-                store.preferences.transcriptionProvider = "deepgram"
+        StudioGlassGroup(spacing: 12) {
+            HStack(spacing: 12) {
+                WelcomeChoice(title: "On this Mac", subtitle: "Local model · Works offline", icon: "laptopcomputer",
+                              selected: store.preferences.transcriptionProvider == "local") {
+                    store.preferences.transcriptionProvider = "local"
+                }
+                WelcomeChoice(title: "Deepgram", subtitle: "Cloud · API key required", icon: "cloud",
+                              selected: store.preferences.transcriptionProvider == "deepgram") {
+                    store.preferences.transcriptionProvider = "deepgram"
+                }
             }
         }
-
     }
 
     private var providerReady: Bool {
@@ -122,10 +123,10 @@ struct WelcomeView: View {
         let title = scene == 0 ? "Let's begin" : scene == 3 && !providerReady ? "Skip for now" : "Continue"
         if scene == 4 {
             Button(title, systemImage: "arrow.right") { move(to: scene + 1) }
-                .studioButton(prominent: true)
+                .studioButton(.primary)
         } else {
             Button(title, systemImage: "arrow.right") { move(to: scene + 1) }
-                .studioButton(prominent: true)
+                .studioButton(.primary)
                 .keyboardShortcut(.defaultAction)
         }
     }

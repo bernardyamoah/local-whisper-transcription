@@ -6,6 +6,8 @@ struct TranscriptInspector: View {
     @State private var speakerId: Int?
     @State private var speakerName = ""
     @State private var showSpeaker = false
+    @State private var identifying = false
+    @State private var identityMessage: String?
     var speakers: [TranscriptSegment] {
         var seen = Set<Int>()
         return (model.job?.segments ?? []).filter { segment in
@@ -16,6 +18,32 @@ struct TranscriptInspector: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Label("Meeting insights", systemImage: "sparkles").font(.headline)
+                    Text("Find key moments and create a summary from transcript excerpts with JEV.").font(.callout).foregroundStyle(.secondary)
+                    GlassEffectContainer {
+                    VStack(alignment: .leading, spacing: 12) {
+                    Button("Rescan Smart Moments", systemImage: "arrow.clockwise") {
+                        if let api = store.api { Task { await model.analyze(summary: false, api: api) } }
+                    }.studioButton()
+                    Button("Generate highlights & summary", systemImage: "text.badge.star") {
+                        if let api = store.api { Task { await model.analyze(summary: true, api: api) } }
+                    }.studioButton(.primary)
+                    }.disabled(model.requestingAnalysis || model.job?.analysis?.busy == true || store.environment?.jev.configured != true)
+                    }
+                    if model.requestingAnalysis || model.job?.analysis?.busy == true {
+                        ProgressView("Analyzing transcript…").controlSize(.small)
+                    }
+                    if let failure = model.job?.analysis?.error {
+                        Text(failure).font(.callout).foregroundStyle(.red)
+                    }
+                    if model.job?.analysis?.state == "completed" {
+                        Text("Analysis complete").font(.caption).foregroundStyle(.secondary)
+                    }
+                    if store.environment?.jev.configured != true {
+                        Text("Connect JEV in Settings to get started.").font(.callout).foregroundStyle(.secondary)
+                    }
+                }
                 if let notes = model.job?.notes, !notes.summary.isEmpty {
                     VStack(alignment: .leading, spacing: 12) {
                         Label("Summary", systemImage: "text.alignleft").font(.headline)
@@ -32,8 +60,19 @@ struct TranscriptInspector: View {
                         HStack {
                             Label("Speakers", systemImage: "person.2").font(.headline)
                             Spacer()
+                            if store.environment?.googleMeet.configured == true {
+                                Button("Identify names", systemImage: "person.crop.circle.badge.checkmark") {
+                                    Task { await identifySpeakers() }
+                                }
+                                .labelStyle(.iconOnly)
+                                .studioIconButton()
+                                .help("Match speakers with Google Meet")
+                                .disabled(identifying)
+                            }
                             Text("\(speakers.count)").font(.caption).foregroundStyle(.secondary)
                         }
+                        if identifying { ProgressView("Matching Google Meet…").controlSize(.small) }
+                        else if let identityMessage { Text(identityMessage).font(.caption).foregroundStyle(.secondary) }
                         if speakers.isEmpty {
                             Text("No speakers identified").font(.callout).foregroundStyle(.secondary)
                         }
@@ -67,8 +106,7 @@ struct TranscriptInspector: View {
                         ForEach(model.job?.template.bookmarks ?? [], id: \.self) { kind in
                             Button(kind) { if let api = store.api { Task { await model.addBookmark(kind, api: api) } } }
                         }
-                    }.menuStyle(.borderlessButton).labelsHidden().frame(width: 24, height: 28)
-                        .background(.primary.opacity(0.08), in: .rect(cornerRadius: 8))
+                    }.menuStyle(.borderlessButton).labelsHidden().studioIconButton().frame(width: 28, height: 28)
                 }
                 if let error = store.environment?.jev.error { Text(error).font(.callout).foregroundStyle(.red) }
                 if model.job?.bookmarks.isEmpty == true { Text("No bookmarks yet").font(.callout).foregroundStyle(.secondary) }
@@ -102,6 +140,16 @@ struct TranscriptInspector: View {
                 if let id = speakerId, let api = store.api { Task { await model.renameSpeaker(id, name: speakerName, api: api) } }
             }
             Button("Cancel", role: .cancel) { }
+        }
+    }
+    private func identifySpeakers() async {
+        guard let api = store.api else { return }
+        identifying = true
+        defer { identifying = false }
+        do {
+            identityMessage = try await model.identifySpeakers(api: api).message
+        } catch {
+            identityMessage = error.localizedDescription
         }
     }
 }

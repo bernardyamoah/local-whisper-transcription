@@ -36,7 +36,7 @@ final class RecordingCompanion {
         guard let store else { return }
         mainWindow = NSApp.windows.first { !($0 is NSPanel) && $0.isVisible }
         if panel == nil {
-            let window = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 350, height: 154),
+            let window = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 390, height: 100),
                                  styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
             window.level = .floating
             window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
@@ -45,16 +45,27 @@ final class RecordingCompanion {
             window.hasShadow = false
             window.isMovableByWindowBackground = true
             window.hidesOnDeactivate = false
-            window.contentView = NSHostingView(rootView: RecordingCompanionView(open: { [weak self] in self?.open() })
+            window.contentView = NSHostingView(rootView: RecordingCompanionView(open: { [weak self] in self?.open() }, resize: { [weak self] height in self?.resize(height) })
                 .environment(store))
             if let screen = mainWindow?.screen ?? NSScreen.main {
                 let frame = screen.visibleFrame
-                window.setFrameOrigin(NSPoint(x: frame.maxX - 370, y: frame.minY + 24))
+                window.setFrameOrigin(NSPoint(x: frame.maxX - 414, y: frame.minY + 24))
             }
             panel = window
         }
         panel?.orderFrontRegardless()
         mainWindow?.miniaturize(nil)
+    }
+
+    private func resize(_ height: CGFloat) {
+        guard let panel else { return }
+        var frame = panel.frame
+        // Keep the bottom edge anchored while new utterances expand upward.
+        frame.size.height = height
+        if let screen = panel.screen {
+            frame.origin.y = min(max(frame.origin.y, screen.visibleFrame.minY), screen.visibleFrame.maxY - height)
+        }
+        panel.setFrame(frame, display: true, animate: !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion)
     }
 
     func open() {

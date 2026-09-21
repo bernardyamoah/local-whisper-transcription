@@ -1,40 +1,84 @@
 import SwiftUI
 
-extension EnvironmentValues {
-    @Entry var plainSettingsSurfaces = false
+struct StudioGlass: ViewModifier {
+    var radius: CGFloat = 20
+    var interactive = false
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if interactive {
+            content.glassEffect(.regular.interactive(), in: .rect(cornerRadius: radius))
+        } else {
+            content.glassEffect(.regular, in: .rect(cornerRadius: radius))
+        }
+    }
 }
 
-struct StudioGlass: ViewModifier {
-    @Environment(\.plainSettingsSurfaces) private var plainSettingsSurfaces
-    var radius: CGFloat = 20
-    @Environment(\.colorScheme) private var scheme
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    @Environment(\.colorSchemeContrast) private var contrast
+struct StudioGlassGroup<Content: View>: View {
+    var spacing: CGFloat = 12
+    @ViewBuilder let content: Content
 
-    func body(content: Content) -> some View {
-        Group {
-            if plainSettingsSurfaces {
-                content.background(Color(nsColor: .controlBackgroundColor), in: .rect(cornerRadius: radius))
-                    .overlay { RoundedRectangle(cornerRadius: radius).strokeBorder(.primary.opacity(contrast == .increased ? 0.25 : 0.06)) }
-            } else if reduceTransparency || contrast == .increased {
-                content.background(.background, in: .rect(cornerRadius: radius))
-                    .overlay { RoundedRectangle(cornerRadius: radius).strokeBorder(.primary.opacity(0.25)) }
-            } else if #available(macOS 26, *) {
-                content.glassEffect(.regular.tint(scheme == .dark ? .black.opacity(0.22) : .white.opacity(0.12)), in: .rect(cornerRadius: radius))
-            } else {
-                content.background(.ultraThinMaterial, in: .rect(cornerRadius: radius))
-                    .overlay { RoundedRectangle(cornerRadius: radius).strokeBorder(.white.opacity(0.2)) }
-            }
-        }
-
+    var body: some View {
+        GlassEffectContainer(spacing: spacing) { content }
     }
 }
 
 extension View {
     @ViewBuilder
-    func studioButton(prominent: Bool = false) -> some View {
-        buttonStyle(StudioButtonStyle(prominent: prominent))
+    func studioButton(_ kind: StudioButtonKind = .secondary) -> some View {
+        switch kind {
+        case .primary:
+            buttonStyle(.glassProminent)
+                .buttonBorderShape(.capsule)
+                .tint(StudioStyle.accent)
+        case .secondary:
+            buttonStyle(.glass)
+                .buttonBorderShape(.capsule)
+                .tint(Color.primary)
+                .foregroundStyle(.primary)
+        case .ghost:
+            buttonStyle(.plain)
+                .foregroundStyle(.primary)
+        case .destructive:
+            buttonStyle(.glassProminent)
+                .buttonBorderShape(.capsule)
+                .tint(.red)
+        }
     }
 
-    func studioGlass(radius: CGFloat = 20) -> some View { modifier(StudioGlass(radius: radius)) }
+    /// Gives freestanding icon actions the same interactive material as text actions.
+    /// Keep borderless buttons inside system toolbars, where macOS supplies the glass container.
+    @ViewBuilder
+    func studioIconButton(_ kind: StudioButtonKind = .secondary) -> some View {
+        switch kind {
+        case .primary:
+            buttonStyle(.glassProminent)
+                .buttonBorderShape(.circle)
+                .tint(StudioStyle.accent)
+        case .secondary:
+            buttonStyle(.glass)
+                .buttonBorderShape(.circle)
+                .tint(Color.primary)
+                .foregroundStyle(.primary)
+        case .ghost:
+            buttonStyle(.plain)
+                .foregroundStyle(.primary)
+        case .destructive:
+            buttonStyle(.glassProminent)
+                .buttonBorderShape(.circle)
+                .tint(.red)
+        }
+    }
+
+    /// Menu-style pickers do not inherit the app's button style consistently on macOS.
+    func studioMenuControl() -> some View {
+        buttonStyle(.glass)
+            .buttonBorderShape(.capsule)
+            .tint(Color.primary)
+            .foregroundStyle(.primary)
+    }
+
+    func studioGlass(radius: CGFloat = 20, interactive: Bool = false) -> some View {
+        modifier(StudioGlass(radius: radius, interactive: interactive))
+    }
 }
